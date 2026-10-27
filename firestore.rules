@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// Règles de sécurité de Pharma Remplaçant.
+// À coller dans Firebase > Firestore Database > Règles, puis « Publier ».
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(me())); }
+    function chemin(p) { return path('/databases/' + database + '/documents/' + p); }
+    // Lien créé quand un remplaçant accepte une mission : ouvre l'accès aux coordonnées des deux côtés.
+    function linked(rid, pid) { return exists(/databases/$(database)/documents/liens/$(rid + '_' + pid)); }
+
+    match /admins/{uid} {
+      allow read: if signedIn() && me() == uid;
+    }
+
+    // Profil public d'un remplaçant. Il devient visible (valide) automatiquement dès que
+    // son n° d'entreprise (BCE) est valide et son diplôme renseigné. Seul l'administrateur
+    // peut le suspendre (bloque) ou le réactiver.
+    function bceOk(b) {
+      return b is string && b.matches('^[01][0-9]{9}$')
+        && 97 - int(b[0:8]) % 97 == int(b[8:10]);
+    }
+    function profilComplet(rid) {
+      let v = getAfter(chemin('remplacants/' + rid + '/prive/verif')).data;
+      return bceOk(v.bce) && v.diplome is string && v.diplome.size() >= 3;
+    }
+    match /remplacants/{rid} {
+      allow read: if signedIn() && (resource.data.valide == true || me() == rid || isAdmin());
+      allow create: if signedIn() && me() == rid
+        && request.resource.data.bloque == false
+        && (request.resource.data.valide == false || profilComplet(rid));
+      allow update: if isAdmin() || (signedIn() && me() == rid
+        && request.resource.data.bloque == resource.data.bloque
+        && (request.resource.data.valide == false || (resource.data.bloque == false && profilComplet(rid))));
+      allow delete: if signedIn() && (me() == rid || isAdmin());
+
+      // contact : téléphone et e-mail, visibles après une mission confirmée.
+      // verif : n° BCE et diplôme, visibles seulement par l'administrateur.
+      match /prive/{docId} {
+        allow read: if signedIn() && (me() == rid || isAdmin() || (docId == 'contact' && linked(rid, me())));
+        allow write: if signedIn() && me() == rid;
+      }
+    }
+
+    match /pharmacies/{pid} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && me() == pid;
+      allow delete: if signedIn() && (me() == pid || isAdmin());
+
+      match /prive/{docId} {
+        allow read: if signedIn() && (me() == pid || isAdmin() || (docId == 'contact' && linked(me(), pid)));
+        allow write: if signedIn() && me() == pid;
+      }
+    }
+
+    match /demandes/{id} {
+      allow read: if signedIn() && (resource.data.rid == me() || resource.data.pid == me() || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.pid == me()
+        && request.resource.data.statut == 'attente'
+        && exists(chemin('pharmacies/' + me()))
+        && get(chemin('remplacants/' + request.resource.data.rid)).data.valide == true;
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'maj'])
+        && (
+          (resource.data.rid == me() && resource.data.statut == 'attente' && request.resource.data.statut in ['acceptee', 'refusee'])
+          || (resource.data.pid == me() && resource.data.statut in ['attente', 'acceptee'] && request.resource.data.statut == 'annulee')
+          || isAdmin()
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /liens/{lid} {
+      allow read: if signedIn() && (resource.data.rid == me() || resource.data.pid == me() || isAdmin());
+      allow create, update: if signedIn()
+        && request.resource.data.rid == me()
+        && lid == me() + '_' + request.resource.data.pid
+        && getAfter(chemin('demandes/' + request.resource.data.demandeId)).data.rid == me()
+        && getAfter(chemin('demandes/' + request.resource.data.demandeId)).data.pid == request.resource.data.pid
+        && getAfter(chemin('demandes/' + request.resource.data.demandeId)).data.statut == 'acceptee';
+    }
+
+    function avisValide(a) {
+      let d = get(chemin('demandes/' + a.demandeId)).data;
+      return d.statut == 'acceptee'
+        && ((a.sens == 'r' && d.rid == me() && a.pour == d.pid) || (a.sens == 'p' && d.pid == me() && a.pour == d.rid));
+    }
+
+    match /avis/{aid} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.de == me()
+        && aid == request.resource.data.demandeId + '_' + request.resource.data.sens
+        && request.resource.data.note is int
+        && request.resource.data.note >= 1 && request.resource.data.note <= 5
+        && avisValide(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

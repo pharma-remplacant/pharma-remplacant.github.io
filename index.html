@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pharma Remplaçant</title>
+<meta name="description" content="Remplacements en officine en Wallonie : les remplaçants indépendants ouvrent leurs jours libres, les pharmacies réservent en 2 minutes.">
+<meta name="theme-color" content="#0b7a5c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pharma Remplaçant">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <div class="brand"><span class="cross" aria-hidden="true"></span><div><b>Pharma Remplaçant</b><small>Remplacements en officine · Wallonie</small></div></div>
+    <div class="seg" role="group" aria-label="Choisir votre rôle" id="roles" hidden>
+      <button data-role="r" aria-pressed="true">Je remplace</button>
+      <button data-role="p" aria-pressed="false">Je suis une pharmacie</button>
+      <button data-role="a" aria-pressed="false" hidden id="role-a">Administration</button>
+    </div>
+  </div>
+  <div class="wrap"><nav class="tabs" id="tabs" role="tablist"></nav></div>
+</header>
+<main class="wrap" id="app">
+  <div class="stack"><h1>Chargement…</h1><p class="lede">Connexion à la plateforme.</p></div>
+</main>
+<datalist id="localites"></datalist>
+<div id="layer"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
