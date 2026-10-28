@@ -618,7 +618,7 @@ function abonnementPanel(){
   const monthPre=TODAY_ISO.slice(0,7);
   const mois=D.filter(d=>d.rid===uid&&d.statut==="acceptee"&&d.date.startsWith(monthPre));
   const du=mois.reduce((s,d)=>s+fraisMission(d),0);
-  const demande=abo?.formule&&abo.formule!==courant?abo:null;
+  const demande=courant!=="vie"&&abo?.formule&&abo.formule!==courant?abo:null;
   const carte=k=>{const f=FORMULES[k],on=k===courant;
     return `<div class="card" style="${on?"border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)":""}">
       <div class="req-top"><h3>${f.nom}</h3>${on?`<span class="status st-acceptee">Ta formule</span>`:demande?.formule===k?`<span class="status st-attente">Demandée</span>`:""}</div>
@@ -627,7 +627,7 @@ function abonnementPanel(){
       ${on||demande?.formule===k?"":`<button class="btn ${k==="mission"?"":"primary"} small" data-abo="${k}">${k==="mission"?"Revenir à la mission":"Choisir"}</button>`}
     </div>`};
   return `<div class="panel stack"><h2>Mon abonnement</h2>
-    ${actif?`<div class="notice ok"><b>${FORMULES[p.formule].nom} actif</b> ${finTxt(p)} : ${p.formule==="vie"?"aucune mission ne te sera jamais facturée. Merci d'avoir lancé l'aventure !":"aucune mission facturée jusque-là."}</div>`:""}
+    ${actif?`<div class="notice ok"><b>${FORMULES[p.formule].nom} actif</b>${p.formule==="vie"?"":" "+finTxt(p)} : ${p.formule==="vie"?"aucune mission ne te sera jamais facturée. Merci d'avoir lancé l'aventure !":"aucune mission facturée jusque-là."}</div>`:""}
     ${demande?`<div class="notice"><b>Demande de ${FORMULES[demande.formule].nom} envoyée.</b> L'administrateur te communique les informations de virement ; ton Premium démarre dès réception du paiement.</div>`:""}
     ${courant==="vie"?"":`<div class="cards">${["mission","mois","an"].map(carte).join("")}</div>`}
     <p style="margin:0">Ce mois-ci : <b class="mono">${mois.length}</b> mission${mois.length>1?"s":""} acceptée${mois.length>1?"s":""}, frais <b class="mono">${du} €</b> TVAC${actif?" (couvertes par ton Premium)":""}.</p>
