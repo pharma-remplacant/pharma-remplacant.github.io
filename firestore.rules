@@ -7,10 +7,19 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
+    // E-mail confirmé : exigé pour voir les profils des autres et envoyer des demandes (limite les faux comptes).
+    function verified() { return signedIn() && request.auth.token.email_verified == true; }
     function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(me())); }
     function chemin(p) { return path('/databases/' + database + '/documents/' + p); }
     // Lien créé quand un remplaçant accepte une mission : ouvre l'accès aux coordonnées des deux côtés.
     function linked(rid, pid) { return exists(/databases/$(database)/documents/liens/$(rid + '_' + pid)); }
+
+    // Contrôles de format : bloquent les données trop longues ou du code glissé dans les champs.
+    function str(v, max) { return v is string && v.size() <= max; }
+    function optStr(d, k, max) { return !(k in d) || str(d[k], max); }
+    function num(v, lo, hi) { return (v is int || v is float) && v >= lo && v <= hi; }
+    function isDate(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function isHeure(v) { return v is string && v.matches('^[0-2][0-9]:[0-5][0-9]$'); }
 
     match /admins/{uid} {
       allow read: if signedIn() && me() == uid;
@@ -27,42 +36,75 @@ service cloud.firestore {
       let v = getAfter(chemin('remplacants/' + rid + '/prive/verif')).data;
       return bceOk(v.bce) && v.diplome is string && v.diplome.size() >= 3;
     }
+    function remplacantValide(d) {
+      return d.keys().hasOnly(['nom', 'statut', 'commune', 'rayon', 'tarif', 'exp', 'logiciels', 'bio', 'dispo', 'valide', 'bloque', 'premium', 'cree', 'consentement', 'maj', 'valideLe'])
+        && str(d.nom, 100) && d.nom.size() > 0
+        && d.statut in ['assistant', 'pharmacien']
+        && str(d.commune, 80)
+        && num(d.rayon, 0, 300) && num(d.tarif, 0, 500) && num(d.exp, 0, 70)
+        && d.logiciels is list && d.logiciels.size() <= 12
+        && str(d.bio, 600)
+        && d.dispo is list && d.dispo.size() <= 400
+        && d.valide is bool && d.bloque is bool;
+    }
     match /remplacants/{rid} {
-      allow read: if signedIn() && (resource.data.valide == true || me() == rid || isAdmin());
+      // Lisible par : lui-même, l'administrateur, ou une officine inscrite à l'e-mail confirmé (profils visibles uniquement).
+      allow read: if signedIn() && (me() == rid || isAdmin()
+        || (resource.data.valide == true && verified() && exists(chemin('pharmacies/' + me()))));
       allow create: if signedIn() && me() == rid
+        && remplacantValide(request.resource.data)
         && request.resource.data.bloque == false
         && request.resource.data.get('premium', null) == null
         && (request.resource.data.valide == false || profilComplet(rid));
       allow update: if isAdmin() || (signedIn() && me() == rid
+        && remplacantValide(request.resource.data)
         && request.resource.data.bloque == resource.data.bloque
         && request.resource.data.get('premium', null) == resource.data.get('premium', null)
         && (request.resource.data.valide == false || (resource.data.bloque == false && profilComplet(rid))));
       allow delete: if signedIn() && (me() == rid || isAdmin());
 
       // contact : téléphone et e-mail, visibles après une mission confirmée.
-      // verif : n° BCE et diplôme, visibles seulement par l'administrateur.
+      // verif : n° BCE et diplôme. factu, abonnement, f-… : facturation. Visibles par lui seul (et l'administrateur).
       match /prive/{docId} {
         allow read: if signedIn() && (me() == rid || isAdmin() || (docId == 'contact' && linked(rid, me())));
-        allow write: if signedIn() && me() == rid;
+        allow write: if signedIn() && me() == rid
+          && (docId != 'contact' || (request.resource.data.keys().hasOnly(['tel', 'email', 'maj'])
+              && str(request.resource.data.tel, 40) && str(request.resource.data.email, 120)))
+          && (docId != 'verif' || (request.resource.data.keys().hasOnly(['bce', 'diplome', 'maj'])
+              && str(request.resource.data.bce, 20) && str(request.resource.data.diplome, 200)));
       }
     }
 
+    // Officines : nom et localité visibles seulement par l'officine elle-même et l'administrateur.
+    // Les remplaçants voient le nom de l'officine dans la demande qu'ils reçoivent.
     match /pharmacies/{pid} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && me() == pid;
+      allow read: if signedIn() && (me() == pid || isAdmin());
+      allow create, update: if signedIn() && me() == pid
+        && request.resource.data.keys().hasOnly(['nom', 'titulaire', 'commune', 'cree', 'consentement', 'maj'])
+        && str(request.resource.data.nom, 120) && request.resource.data.nom.size() > 0
+        && str(request.resource.data.titulaire, 120) && str(request.resource.data.commune, 80);
       allow delete: if signedIn() && (me() == pid || isAdmin());
 
       match /prive/{docId} {
         allow read: if signedIn() && (me() == pid || isAdmin() || (docId == 'contact' && linked(me(), pid)));
-        allow write: if signedIn() && me() == pid;
+        allow write: if signedIn() && me() == pid
+          && (docId != 'contact' || (request.resource.data.keys().hasOnly(['adresse', 'tel', 'email', 'apb', 'bce', 'maj'])
+              && str(request.resource.data.adresse, 200) && str(request.resource.data.tel, 40)
+              && str(request.resource.data.email, 120) && optStr(request.resource.data, 'apb', 40)
+              && optStr(request.resource.data, 'bce', 20)));
       }
     }
 
     match /demandes/{id} {
       allow read: if signedIn() && (resource.data.rid == me() || resource.data.pid == me() || isAdmin());
-      allow create: if signedIn()
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['rid', 'rnom', 'pid', 'pnom', 'pcommune', 'date', 'debut', 'fin', 'tarif', 'message', 'statut', 'cree', 'maj'])
         && request.resource.data.pid == me()
         && request.resource.data.statut == 'attente'
+        && isDate(request.resource.data.date) && isHeure(request.resource.data.debut) && isHeure(request.resource.data.fin)
+        && num(request.resource.data.tarif, 0, 500)
+        && str(request.resource.data.message, 600) && str(request.resource.data.rnom, 100)
+        && str(request.resource.data.pnom, 120) && str(request.resource.data.pcommune, 80)
         && exists(chemin('pharmacies/' + me()))
         && get(chemin('remplacants/' + request.resource.data.rid)).data.valide == true;
       allow update: if signedIn()
@@ -78,6 +120,7 @@ service cloud.firestore {
     match /liens/{lid} {
       allow read: if signedIn() && (resource.data.rid == me() || resource.data.pid == me() || isAdmin());
       allow create, update: if signedIn()
+        && request.resource.data.keys().hasOnly(['rid', 'pid', 'demandeId', 'maj'])
         && request.resource.data.rid == me()
         && lid == me() + '_' + request.resource.data.pid
         && getAfter(chemin('demandes/' + request.resource.data.demandeId)).data.rid == me()
@@ -94,10 +137,12 @@ service cloud.firestore {
     match /avis/{aid} {
       allow read: if signedIn();
       allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['demandeId', 'sens', 'de', 'pour', 'note', 'texte', 'cree'])
         && request.resource.data.de == me()
         && aid == request.resource.data.demandeId + '_' + request.resource.data.sens
         && request.resource.data.note is int
         && request.resource.data.note >= 1 && request.resource.data.note <= 5
+        && str(request.resource.data.texte, 500)
         && avisValide(request.resource.data);
       allow delete: if isAdmin();
     }
