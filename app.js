@@ -603,8 +603,11 @@ function vCompte(){
 const FORMULES={
   mission:{nom:"À la mission",prix:"2 € TVAC",unite:"par mission acceptée",slogan:"Tu ne paies que quand tu travailles."},
   mois:{nom:"Premium mensuel",prix:"4,99 € TVAC",unite:"par mois, missions illimitées",slogan:"Missions illimitées : rentabilisé dès la 3e mission du mois."},
-  an:{nom:"Premium annuel",prix:"34,99 € TVAC",unite:"par an, missions illimitées",slogan:"Moins de 3 € par mois : 5 mois offerts par rapport au mensuel."}
+  an:{nom:"Premium annuel",prix:"34,99 € TVAC",unite:"par an, missions illimitées",slogan:"Moins de 3 € par mois : 5 mois offerts par rapport au mensuel."},
+  vie:{nom:"Premium à vie",prix:"Offert",unite:"membre fondateur, sans limite de durée",slogan:"Merci d'avoir lancé l'aventure."}
 };
+const VIE="9999-12-31";
+const finTxt=p=>p.formule==="vie"?"à vie":`jusqu'au ${niceY(p.fin)}`;
 // Premium actif à une date donnée (r.premium = {formule, debut, fin}, posé par l'administrateur)
 const premiumA=(r,date)=>!!(r?.premium&&r.premium.debut<=date&&date<=r.premium.fin);
 const fraisMission=(d)=>premiumA(rem(d.rid),d.date)?0:FRAIS;
@@ -624,9 +627,9 @@ function abonnementPanel(){
       ${on||demande?.formule===k?"":`<button class="btn ${k==="mission"?"":"primary"} small" data-abo="${k}">${k==="mission"?"Revenir à la mission":"Choisir"}</button>`}
     </div>`};
   return `<div class="panel stack"><h2>Mon abonnement</h2>
-    ${actif?`<div class="notice ok"><b>${FORMULES[p.formule].nom} actif</b> jusqu'au ${niceY(p.fin)} : aucune mission facturée jusque-là.</div>`:""}
+    ${actif?`<div class="notice ok"><b>${FORMULES[p.formule].nom} actif</b> ${finTxt(p)} : ${p.formule==="vie"?"aucune mission ne te sera jamais facturée. Merci d'avoir lancé l'aventure !":"aucune mission facturée jusque-là."}</div>`:""}
     ${demande?`<div class="notice"><b>Demande de ${FORMULES[demande.formule].nom} envoyée.</b> L'administrateur te communique les informations de virement ; ton Premium démarre dès réception du paiement.</div>`:""}
-    <div class="cards">${["mission","mois","an"].map(carte).join("")}</div>
+    ${courant==="vie"?"":`<div class="cards">${["mission","mois","an"].map(carte).join("")}</div>`}
     <p style="margin:0">Ce mois-ci : <b class="mono">${mois.length}</b> mission${mois.length>1?"s":""} acceptée${mois.length>1?"s":""}, frais <b class="mono">${du} €</b> TVAC${actif?" (couvertes par ton Premium)":""}.</p>
     <p class="muted" style="margin:0;font-size:14px">Gratuit pendant le pilote : ces montants sont indicatifs et ne seront pas facturés. Tu pourras choisir ta formule avant la fin du pilote.</p>
   </div>`;
@@ -835,14 +838,15 @@ function vValidation(){
       <tr><th>Tél.</th><td class="mono">${esc(x.tel||"—")}</td></tr>
       <tr><th>E-mail</th><td style="overflow-wrap:anywhere">${esc(x.email||"—")}</td></tr>
       <tr><th>Inscrit</th><td>${r.cree?nice(r.cree.slice(0,10)):"—"}</td></tr>
-      <tr><th>Formule</th><td>${premiumA(r,TODAY_ISO)?`<b>${FORMULES[r.premium.formule].nom}</b> jusqu'au ${niceY(r.premium.fin)}`:"À la mission"}${x.abo?.formule&&x.abo.formule!=="mission"&&!(premiumA(r,TODAY_ISO)&&r.premium.formule===x.abo.formule)?`<br><span class="status st-attente">Demande : ${FORMULES[x.abo.formule].nom}</span> <span class="muted" style="font-size:12px">le ${nice(x.abo.demandeLe.slice(0,10))}</span>`:""}</td></tr>
+      <tr><th>Formule</th><td>${premiumA(r,TODAY_ISO)?`<b>${FORMULES[r.premium.formule].nom}</b> ${finTxt(r.premium)}`:"À la mission"}${x.abo?.formule&&x.abo.formule!=="mission"&&!(premiumA(r,TODAY_ISO)&&r.premium.formule===x.abo.formule)?`<br><span class="status st-attente">Demande : ${FORMULES[x.abo.formule].nom}</span> <span class="muted" style="font-size:12px">le ${nice(x.abo.demandeLe.slice(0,10))}</span>`:""}</td></tr>
     </tbody></table></div>
-    <div class="row"><button class="btn small" data-prem="${esc(id)}|mois">Activer Premium mensuel</button><button class="btn small" data-prem="${esc(id)}|an">Activer Premium annuel</button>${premiumA(r,TODAY_ISO)?`<button class="btn small danger" data-prem="${esc(id)}|stop">Arrêter le Premium</button>`:""}</div>
+    <div class="row"><button class="btn small" data-prem="${esc(id)}|mois">Activer Premium mensuel</button><button class="btn small" data-prem="${esc(id)}|an">Activer Premium annuel</button><button class="btn small" data-prem="${esc(id)}|vie">Offrir Premium à vie</button>${premiumA(r,TODAY_ISO)?`<button class="btn small danger" data-prem="${esc(id)}|stop">Arrêter le Premium</button>`:""}</div>
     ${r.bloque?`<button class="btn small" data-unblock="${esc(id)}">Réactiver</button>`:`<button class="btn danger small" data-block="${esc(id)}">Suspendre</button>`}
   </div>`}).join("")}</div>`:`<div class="empty">Aucun remplaçant inscrit pour l'instant. Partage le lien d'inscription à tes collègues.</div>`}</div>`;
   app.querySelectorAll("[data-prem]").forEach(b=>b.onclick=()=>{const [id,k]=b.dataset.prem.split("|"),r=RA[id];
     if(k==="stop"){confirmSheet("Arrêter le Premium ?","Les missions suivantes seront de nouveau à 2 €.","Arrêter",()=>write(()=>updateDoc(doc(db,"remplacants",id),{premium:{...r.premium,fin:iso(addDays(TODAY,-1))}}),"Premium arrêté"));return}
-    const debut=premiumA(r,TODAY_ISO)?iso(addDays(parse(r.premium.fin),1)):TODAY_ISO, fin=addMonths(debut,k==="an"?12:1);
+    if(k==="vie"){confirmSheet("Offrir le Premium à vie ?",`${r.nom} ne paiera jamais de frais de mission.`,"Offrir",()=>write(()=>updateDoc(doc(db,"remplacants",id),{premium:{formule:"vie",debut:TODAY_ISO,fin:VIE}}),"Premium à vie offert"));return}
+    const debut=premiumA(r,TODAY_ISO)&&r.premium.formule!=="vie"?iso(addDays(parse(r.premium.fin),1)):TODAY_ISO, fin=addMonths(debut,k==="an"?12:1);
     confirmSheet(`Activer ${FORMULES[k].nom} ?`,`À faire après réception du paiement (${FORMULES[k].prix}). Valable du ${niceY(debut)} au ${niceY(fin)}.`,"Activer",()=>write(()=>updateDoc(doc(db,"remplacants",id),{premium:{formule:k,debut,fin}}),"Premium activé"));
   });
   app.querySelectorAll("[data-unblock]").forEach(b=>b.onclick=()=>{b.disabled=true;setBloque(b.dataset.unblock,false)});
@@ -863,7 +867,7 @@ function vVue(){
     :["bad","Risque de dépasser le quota gratuit","Préviens Claude rapidement : optimisation ou passage à l'offre Firebase à l'usage (quelques euros par mois)."];
   const perR=Object.entries(conf.reduce((m,d)=>{m[d.rid]=m[d.rid]||[0,0];m[d.rid][0]++;m[d.rid][1]+=fraisMission(d);return m},{})).sort((a,b)=>b[1][0]-a[1][0]);
   const fraisTot=conf.reduce((s,d)=>s+fraisMission(d),0);
-  const prem=Object.values(RA).filter(r=>premiumA(r,TODAY_ISO)), nMois=prem.filter(r=>r.premium.formule==="mois").length, nAn=prem.length-nMois;
+  const prem=Object.values(RA).filter(r=>premiumA(r,TODAY_ISO)), nMois=prem.filter(r=>r.premium.formule==="mois").length, nAn=prem.filter(r=>r.premium.formule==="an").length;
   app.innerHTML=`<div class="stack"><div><h1>Vue d'ensemble</h1><p class="lede">L'activité de la plateforme, en direct.</p></div>
   <div class="panel"><div class="stat"><div><b>${nV}/${nR}</b><span>remplaçants visibles</span></div><div><b>${nP}</b><span>officines inscrites</span></div><div><b>${att.length}</b><span>demandes en attente</span></div><div><b>${conf.length}</b><span>missions confirmées</span></div><div><b>${A.length?fmtNote(notes):"—"}</b><span>note moyenne (${A.length} avis)</span></div><div><b>${fraisTot} €</b><span>frais missions (${FRAIS} € TVAC/mission)</span></div><div><b>${nMois}+${nAn}</b><span>Premium mensuels + annuels</span></div></div></div>
   <div class="notice ${quota[0]==="ok"?"ok":""} install" style="${quota[0]==="bad"?"background:var(--bad-soft)":""}"><span><b style="${quota[0]==="bad"?"color:var(--bad)":""}">Capacité Firebase : ${quota[1]}.</b> ${quota[2]}<br><span class="hint">Estimation : ${lecturesJour.toLocaleString("fr-BE")} lectures par jour sur environ 50 000 gratuites (${utilisateurs} inscrits, 2 ouvertures par jour chacun). Chiffre réel : Firebase > Firestore > Utilisation.</span></span></div>
