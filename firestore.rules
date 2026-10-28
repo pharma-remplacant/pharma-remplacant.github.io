@@ -18,7 +18,7 @@ service cloud.firestore {
 
     // Profil public d'un remplaçant. Il devient visible (valide) automatiquement dès que
     // son n° d'entreprise (BCE) est valide et son diplôme renseigné. Seul l'administrateur
-    // peut le suspendre (bloque) ou le réactiver.
+    // peut le suspendre (bloque), le réactiver, ou activer son abonnement Premium (premium).
     function bceOk(b) {
       return b is string && b.matches('^[01][0-9]{9}$')
         && 97 - int(b[0:8]) % 97 == int(b[8:10]);
@@ -31,9 +31,11 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.valide == true || me() == rid || isAdmin());
       allow create: if signedIn() && me() == rid
         && request.resource.data.bloque == false
+        && request.resource.data.get('premium', null) == null
         && (request.resource.data.valide == false || profilComplet(rid));
       allow update: if isAdmin() || (signedIn() && me() == rid
         && request.resource.data.bloque == resource.data.bloque
+        && request.resource.data.get('premium', null) == resource.data.get('premium', null)
         && (request.resource.data.valide == false || (resource.data.bloque == false && profilComplet(rid))));
       allow delete: if signedIn() && (me() == rid || isAdmin());
 

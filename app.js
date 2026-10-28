@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, addDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, addDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { LOC } from "./localites.js";
 
@@ -18,6 +18,7 @@ const TODAY=(()=>{const d=new Date();d.setHours(0,0,0,0);return d})();
 const TODAY_ISO=iso(TODAY);
 const nowIso=()=>new Date().toISOString();
 const nice=s=>{const d=parse(s);return JOURS[d.getDay()]+" "+d.getDate()+" "+MOIS[d.getMonth()]};
+const niceY=s=>nice(s)+" "+s.slice(0,4);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const initials=n=>String(n||"?").split(/\s+/).filter(Boolean).map(w=>w[0]).join("").slice(0,2).toUpperCase();
 const locLabel=n=>{const l=GEO.get(n);return l?`${n} (${l[1]})`:n};
@@ -131,7 +132,7 @@ function vAuth(){
 }
 
 function stopAll(){unsubs.forEach(u=>u());unsubs=[];contacts.clear()}
-function resetState(){myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
+function resetState(){factu=factures=abo=null;myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
 
 if(!configured)vSetup();
 else onAuthStateChanged(auth,async u=>{
@@ -169,7 +170,7 @@ function tabsFor(){
   if(role==="r"){
     if(!myR)return[["inscription","Créer mon profil"],["compte","Mon compte"]];
     const pend=D.filter(d=>d.rid===uid&&d.statut==="attente"&&d.date>=TODAY_ISO).length;
-    return[["agenda","Mon agenda"],["demandes","Demandes"+(pend?`<span class="count">${pend}</span>`:"")],["profil","Mon profil"],["compte","Mon compte"]];
+    return[["agenda","Mon agenda"],["demandes","Demandes"+(pend?`<span class="count">${pend}</span>`:"")],["facturation","Facturation"],["profil","Mon profil"],["compte","Mon compte"]];
   }
   if(!myP)return[["officine","Inscrire mon officine"],["compte","Mon compte"]];
   return[["trouver","Trouver un remplaçant"],["mesdemandes","Mes demandes"],["officine","Mon officine"],["compte","Mon compte"]];
@@ -185,7 +186,7 @@ function renderTabs(){
 }
 rolesEl.querySelectorAll("button").forEach(b=>b.onclick=()=>{role=b.dataset.role;store.set("pr-role",role);tab=null;mount()});
 
-const VIEWS={agenda:vAgenda,demandes:vDemandes,profil:vProfil,inscription:vProfil,trouver:vTrouver,mesdemandes:vMesDemandes,officine:vOfficine,validation:vValidation,vue:vVue,compte:vCompte};
+const VIEWS={agenda:vAgenda,demandes:vDemandes,profil:vProfil,inscription:vProfil,trouver:vTrouver,mesdemandes:vMesDemandes,officine:vOfficine,validation:vValidation,vue:vVue,compte:vCompte,facturation:vFacturation};
 function mount(){
   if(!user||!ready)return;
   if(role==="a"&&!isAdmin)role="r";
@@ -455,19 +456,22 @@ function vOfficine(){
       <label>Adresse<input id="o-adr" required placeholder="Rue et numéro"></label>
       <label>Téléphone<input id="o-tel" type="tel" required></label>
       <label>E-mail<input id="o-email" type="email" required value="${esc(isNew?user.email:"")}"></label>
+      <label>N° d'entreprise (BCE)<input id="o-bce" required placeholder="0xxx.xxx.xxx"><span class="hint">Pour recevoir les factures des remplaçants par Peppol.</span></label>
       <label>N° APB / AFMPS (facultatif)<input id="o-apb"></label>
     </div>
     ${isNew?`<label class="check"><input type="checkbox" id="o-ok" required>J'accepte les conditions du pilote. L'accès est gratuit pour les officines.</label>`:""}
     <div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">${isNew?"Inscrire mon officine":"Enregistrer"}</button></div>
   </form></div>`;
   bindBanner();
-  if(!isNew)getDoc(doc(db,"pharmacies",uid,"prive","contact")).then(s=>{const c=s.data()||{};for(const[id,k]of[["o-adr","adresse"],["o-tel","tel"],["o-email","email"],["o-apb","apb"]]){const el=document.getElementById(id);if(el&&!el.value)el.value=c[k]||""}}).catch(()=>{});
+  if(!isNew)getDoc(doc(db,"pharmacies",uid,"prive","contact")).then(s=>{const c=s.data()||{};for(const[id,k]of[["o-adr","adresse"],["o-tel","tel"],["o-email","email"],["o-apb","apb"],["o-bce","bce"]]){const el=document.getElementById(id);if(el&&!el.value)el.value=k==="bce"?bceFmt(c[k]||""):c[k]||""}}).catch(()=>{});
   document.getElementById("of").onsubmit=e=>{e.preventDefault();
     const commune=document.getElementById("o-commune").value.trim();
     if(!GEO.has(commune)){toast("Choisis une localité wallonne dans la liste.");document.getElementById("o-commune").focus();return}
+    const obce=bceNorm(document.getElementById("o-bce").value);
+    if(!bceOk(obce)){toast("Ce n° d'entreprise n'est pas valide. Il compte 10 chiffres, par exemple 0123.456.749.");document.getElementById("o-bce").focus();return}
     const t=nowIso();
     const pub={nom:document.getElementById("o-nom").value.trim(),titulaire:document.getElementById("o-tit").value.trim(),commune,maj:t};
-    const contact={adresse:document.getElementById("o-adr").value.trim(),tel:document.getElementById("o-tel").value.trim(),email:document.getElementById("o-email").value.trim(),apb:document.getElementById("o-apb").value.trim(),maj:t};
+    const contact={adresse:document.getElementById("o-adr").value.trim(),tel:document.getElementById("o-tel").value.trim(),email:document.getElementById("o-email").value.trim(),apb:document.getElementById("o-apb").value.trim(),bce:obce,maj:t};
     write(async()=>{
       const batch=writeBatch(db);
       if(isNew)batch.set(doc(db,"pharmacies",uid),{...pub,cree:t,consentement:t});else batch.update(doc(db,"pharmacies",uid),pub);
@@ -549,13 +553,12 @@ function vMesDemandes(){
 
 /* ---------- MON COMPTE ---------- */
 function vCompte(){
-  const monthPre=TODAY_ISO.slice(0,7);
-  const nMois=D.filter(d=>d.rid===uid&&d.statut==="acceptee"&&d.date.startsWith(monthPre)).length;
   app.innerHTML=`<div class="stack">${banner()}<div><h1>Mon compte</h1><p class="lede">Connecté avec ${esc(user.email)}.</p></div>
-  ${myR?`<div class="panel stack"><h2>Frais de missions</h2><p style="margin:0">Ce mois-ci : <b class="mono">${nMois}</b> mission${nMois>1?"s":""} acceptée${nMois>1?"s":""}, soit <b class="mono">${nMois*FRAIS} €</b> TVAC.</p><p class="muted" style="margin:0;font-size:14px">Gratuit pendant le pilote : ce montant est indicatif et ne sera pas facturé.</p></div>`:""}
+  ${myR?abonnementPanel():""}
   <div class="panel stack"><h2>Session</h2><div class="row"><button class="btn" id="c-out">Me déconnecter</button></div></div>
   <div class="panel stack"><h2>Supprimer mon compte</h2><p class="muted" style="margin:0;font-size:14px">Supprime ton profil, ton officine, tes coordonnées et ton accès. L'historique des missions passées reste visible par l'autre partie.</p><div class="row"><button class="btn danger" id="c-del">Supprimer mon compte</button></div></div></div>`;
   bindBanner();
+  if(myR){bindAbonnement(app,()=>vCompte());if(abo===null){abo={};getDoc(doc(db,"remplacants",uid,"prive","abonnement")).then(s=>{abo=s.data()||{};if(tab==="compte")vCompte()}).catch(()=>{})}}
   document.getElementById("c-out").onclick=()=>signOut(auth);
   document.getElementById("c-del").onclick=()=>confirmSheet("Supprimer ton compte ?","Cette action est définitive.","Supprimer définitivement",async()=>{
     try{
@@ -566,17 +569,228 @@ function vCompte(){
   return{refresh:()=>{}};
 }
 
+/* ---------- ABONNEMENT : à la mission ou Premium ---------- */
+const FORMULES={
+  mission:{nom:"À la mission",prix:"2 € TVAC",unite:"par mission acceptée",slogan:"Tu ne paies que quand tu travailles."},
+  mois:{nom:"Premium mensuel",prix:"4,99 € TVAC",unite:"par mois, missions illimitées",slogan:"Missions illimitées : rentabilisé dès la 3e mission du mois."},
+  an:{nom:"Premium annuel",prix:"34,99 € TVAC",unite:"par an, missions illimitées",slogan:"Moins de 3 € par mois : 5 mois offerts par rapport au mensuel."}
+};
+// Premium actif à une date donnée (r.premium = {formule, debut, fin}, posé par l'administrateur)
+const premiumA=(r,date)=>!!(r?.premium&&r.premium.debut<=date&&date<=r.premium.fin);
+const fraisMission=(d)=>premiumA(rem(d.rid),d.date)?0:FRAIS;
+function addMonths(isoDate,n){const d=parse(isoDate);d.setMonth(d.getMonth()+n);d.setDate(d.getDate()-1);return iso(d)}
+function abonnementPanel(){
+  const r=myR, p=r.premium, actif=premiumA(r,TODAY_ISO);
+  const courant=actif?p.formule:"mission";
+  const monthPre=TODAY_ISO.slice(0,7);
+  const mois=D.filter(d=>d.rid===uid&&d.statut==="acceptee"&&d.date.startsWith(monthPre));
+  const du=mois.reduce((s,d)=>s+fraisMission(d),0);
+  const demande=abo?.formule&&abo.formule!==courant?abo:null;
+  const carte=k=>{const f=FORMULES[k],on=k===courant;
+    return `<div class="card" style="${on?"border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)":""}">
+      <div class="req-top"><h3>${f.nom}</h3>${on?`<span class="status st-acceptee">Ta formule</span>`:demande?.formule===k?`<span class="status st-attente">Demandée</span>`:""}</div>
+      <div><b class="mono" style="font-size:22px">${f.prix}</b><br><span class="muted" style="font-size:13px">${f.unite}</span></div>
+      <p style="margin:0;font-style:italic">« ${f.slogan} »</p>
+      ${on||demande?.formule===k?"":`<button class="btn ${k==="mission"?"":"primary"} small" data-abo="${k}">${k==="mission"?"Revenir à la mission":"Choisir"}</button>`}
+    </div>`};
+  return `<div class="panel stack"><h2>Mon abonnement</h2>
+    ${actif?`<div class="notice ok"><b>${FORMULES[p.formule].nom} actif</b> jusqu'au ${niceY(p.fin)} : aucune mission facturée jusque-là.</div>`:""}
+    ${demande?`<div class="notice"><b>Demande de ${FORMULES[demande.formule].nom} envoyée.</b> L'administrateur te communique les informations de virement ; ton Premium démarre dès réception du paiement.</div>`:""}
+    <div class="cards">${["mission","mois","an"].map(carte).join("")}</div>
+    <p style="margin:0">Ce mois-ci : <b class="mono">${mois.length}</b> mission${mois.length>1?"s":""} acceptée${mois.length>1?"s":""}, frais <b class="mono">${du} €</b> TVAC${actif?" (couvertes par ton Premium)":""}.</p>
+    <p class="muted" style="margin:0;font-size:14px">Gratuit pendant le pilote : ces montants sont indicatifs et ne seront pas facturés. Tu pourras choisir ta formule avant la fin du pilote.</p>
+  </div>`;
+}
+let abo=null; // demande d'abonnement du remplaçant connecté (prive/abonnement)
+function bindAbonnement(root,redraw){
+  root.querySelectorAll("[data-abo]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.abo;b.disabled=true;
+    write(()=>setDoc(doc(db,"remplacants",uid,"prive","abonnement"),{formule:k,demandeLe:nowIso()}),
+      k==="mission"?"C'est noté : tu restes à la mission.":"Demande envoyée. Tu recevras les infos de virement de l'administrateur.")
+      .then(ok=>{if(ok){abo={formule:k,demandeLe:nowIso()};redraw()}else b.disabled=false});
+  });
+}
+
+/* ---------- FACTURATION (remplaçant → officine, format Peppol) ---------- */
+const REGIMES={
+  S:{label:"TVA 21 % (assujetti normal)",cat:"S",taux:21,mention:""},
+  F:{label:"Franchise des petites entreprises (art. 56bis)",cat:"E",taux:0,mention:"Régime particulier de franchise des petites entreprises"},
+  X:{label:"Exonéré (art. 44 du Code de la TVA)",cat:"E",taux:0,mention:"Exonération de la TVA, article 44 du Code de la TVA"}
+};
+let factu=null, factures=null;
+const eur=n=>n.toFixed(2).replace(".",",")+" €";
+const r2=n=>Math.round(n*100)/100;
+function nextNumero(n){const m=String(n||"").match(/^(.*?)(\d+)$/);if(!m)return n+"-1";return m[1]+String(+m[2]+1).padStart(m[2].length,"0")}
+async function loadFactu(){
+  const [f,list]=await Promise.all([getDoc(doc(db,"remplacants",uid,"prive","factu")),getDocs(collection(db,"remplacants",uid,"prive"))]);
+  const v=(await getDoc(doc(db,"remplacants",uid,"prive","verif"))).data()||{};
+  const zip=GEO.get(myR.commune)?.[1]||"";
+  factu=f.exists()?f.data():{nom:myR.nom,rue:"",cp:zip,ville:myR.commune,bce:v.bce||"",tva:v.bce?"BE"+v.bce:"",iban:"",regime:"S",delai:30,prochain:new Date().getFullYear()+"-001",nouveau:true};
+  factures=list.docs.filter(x=>x.id.startsWith("f-")).map(x=>({id:x.id,...x.data()})).sort((a,b)=>a.date<b.date?1:-1);
+}
+function vFacturation(){
+  const draw=()=>{
+  if(!factu){app.innerHTML=`<div class="stack"><h1>Facturation</h1><p class="lede">Chargement…</p></div>`;loadFactu().then(draw).catch(()=>toast("Chargement impossible pour l'instant."));return}
+  const faites=new Map(factures.map(f=>[f.demandeId,f]));
+  const aFacturer=D.filter(d=>d.rid===uid&&d.statut==="acceptee"&&d.date<=TODAY_ISO).sort((a,b)=>a.date<b.date?1:-1);
+  const reg=REGIMES[factu.regime]||REGIMES.S;
+  app.innerHTML=`<div class="stack">${banner()}<div><h1>Facturation</h1><p class="lede">Après chaque mission, prépare ta facture pour l'officine en un geste. Le fichier est au format <b>Peppol</b> (UBL), obligatoire entre entreprises en Belgique : importe-le dans ton outil Peppol ou transmets-le à ton comptable.</p></div>
+  ${factu.nouveau?`<div class="notice"><b>Complète d'abord tes infos de facturation</b> : adresse, IBAN et régime TVA.</div>`:""}
+  <details class="panel" ${factu.nouveau?"open":""}><summary style="cursor:pointer"><b>Mes infos de facturation</b> <span class="muted" style="font-size:13px">${esc(factu.nom)} · ${esc(reg.label)}</span></summary>
+  <form class="stack" id="ff" style="margin-top:14px">
+    <div class="grid">
+      <label>Nom ou raison sociale<input id="f-nom" value="${esc(factu.nom)}" required></label>
+      <label>Rue et numéro<input id="f-rue" value="${esc(factu.rue)}" required></label>
+      <label>Code postal<input id="f-cp" value="${esc(factu.cp)}" required inputmode="numeric"></label>
+      <label>Localité<input id="f-ville" value="${esc(factu.ville)}" required></label>
+      <label>N° d'entreprise (BCE)<input id="f-bce" value="${esc(bceFmt(factu.bce))}" required></label>
+      <label>N° de TVA<input id="f-tva" value="${esc(factu.tva)}" required placeholder="BE0123456749"><span class="hint">En général BE + ton n° d'entreprise, même en franchise ou exonéré.</span></label>
+      <label>IBAN<input id="f-iban" value="${esc(factu.iban)}" required placeholder="BE00 0000 0000 0000"></label>
+      <label>Régime TVA<select id="f-reg">${Object.entries(REGIMES).map(([k,x])=>`<option value="${k}" ${k===factu.regime?"selected":""}>${x.label}</option>`).join("")}</select><span class="hint">En cas de doute, demande à ton comptable.</span></label>
+      <label>Délai de paiement (jours)<input id="f-delai" type="number" min="0" max="90" value="${factu.delai}"></label>
+      <label>Prochain n° de facture<input id="f-num" value="${esc(factu.prochain)}" required></label>
+    </div>
+    <div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">Enregistrer</button></div>
+  </form></details>
+  <h2>Missions à facturer</h2>
+  ${aFacturer.length?`<div class="cards">${aFacturer.map(d=>{const f=faites.get(d.id),h=hours(d.debut,d.fin),ht=r2(h*d.tarif);return `<div class="card">
+    <div class="req-top"><div style="min-width:0"><h3>${esc(P[d.pid]?.nom||d.pnom)}</h3><p class="muted" style="margin:0;font-size:13px">${nice(d.date)} · <span class="mono">${d.debut}–${d.fin}</span></p></div>${f?`<span class="status st-acceptee">Facturée</span>`:`<span class="status st-attente">À facturer</span>`}</div>
+    <div class="facts"><div><b>${fmtH(h)} h</b><span>prestées</span></div><div><b>${fmtH(d.tarif)} €</b><span>par heure</span></div><div><b>${eur(ht)}</b><span>HTVA</span></div></div>
+    ${f?`<p class="muted" style="margin:0;font-size:13px">Facture n° <b class="mono">${esc(f.numero)}</b> du ${nice(f.date)} · ${eur(f.total)}</p><div class="row"><button class="btn small" data-xml="${f.id}">Fichier Peppol</button><button class="btn small" data-pdf="${f.id}">Voir / imprimer</button></div>`
+      :`<button class="btn primary" data-fac="${d.id}" ${factu.nouveau?"disabled":""}>Préparer la facture</button>`}
+  </div>`}).join("")}</div>`:`<div class="empty">Aucune mission à facturer pour l'instant. Tes missions confirmées apparaîtront ici à partir de leur date.</div>`}
+  </div>`;
+  bindBanner();
+  document.getElementById("ff").onsubmit=e=>{e.preventDefault();
+    const bce=bceNorm(document.getElementById("f-bce").value);
+    if(!bceOk(bce)){toast("Ce n° d'entreprise n'est pas valide.");return}
+    const iban=document.getElementById("f-iban").value.replace(/\s/g,"").toUpperCase();
+    if(!/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/.test(iban)){toast("Vérifie ton IBAN.");return}
+    const v={nom:document.getElementById("f-nom").value.trim(),rue:document.getElementById("f-rue").value.trim(),cp:document.getElementById("f-cp").value.trim(),ville:document.getElementById("f-ville").value.trim(),
+      bce,tva:document.getElementById("f-tva").value.replace(/[\s.]/g,"").toUpperCase(),iban,regime:document.getElementById("f-reg").value,
+      delai:+document.getElementById("f-delai").value||0,prochain:document.getElementById("f-num").value.trim(),maj:nowIso()};
+    write(()=>setDoc(doc(db,"remplacants",uid,"prive","factu"),v),"Infos de facturation enregistrées").then(ok=>{if(ok){factu=v;draw()}});
+  };
+  app.querySelectorAll("[data-fac]").forEach(b=>b.onclick=()=>factureModal(D.find(x=>x.id===b.dataset.fac),draw));
+  app.querySelectorAll("[data-xml]").forEach(b=>b.onclick=()=>{const f=factures.find(x=>x.id===b.dataset.xml);telecharger(f.numero+".xml",ublXml(f),"application/xml")});
+  app.querySelectorAll("[data-pdf]").forEach(b=>b.onclick=()=>imprimer(factures.find(x=>x.id===b.dataset.pdf)));
+  };
+  draw();return{refresh:()=>{if(factu&&!document.querySelector(".overlay")&&!document.activeElement?.closest?.("#ff"))draw()},keep:true};
+}
+async function factureModal(d,redraw){
+  const p=P[d.pid]||{nom:d.pnom,commune:d.pcommune};
+  let c={};try{c=(await getDoc(doc(db,"pharmacies",d.pid,"prive","contact"))).data()||{}}catch(e){}
+  const zip=GEO.get(p.commune)?.[1]||"";
+  const reg=REGIMES[factu.regime]||REGIMES.S;
+  layer.innerHTML=`<div class="overlay" id="ov"><form class="sheet" id="fm" role="dialog" aria-modal="true" aria-labelledby="fm-t">
+    <div><h2 id="fm-t">Facture n° ${esc(factu.prochain)}</h2><p class="muted" style="margin:4px 0 0;font-size:14px">Mission du ${nice(d.date)} chez ${esc(p.nom)}</p></div>
+    <fieldset class="stack" style="gap:10px"><legend>Client</legend>
+      <div class="grid">
+        <label>Officine<input id="c-nom" value="${esc(p.nom)}" required></label>
+        <label>N° d'entreprise (BCE)<input id="c-bce" value="${esc(bceFmt(c.bce||""))}" required placeholder="0xxx.xxx.xxx"><span class="hint">Sert d'adresse Peppol de l'officine.</span></label>
+        <label>Adresse<input id="c-rue" value="${esc(c.adresse||"")}" required></label>
+        <label>Code postal<input id="c-cp" value="${esc(zip)}" required></label>
+        <label>Localité<input id="c-ville" value="${esc(p.commune||"")}" required></label>
+      </div></fieldset>
+    <fieldset class="stack" style="gap:10px"><legend>Prestation</legend>
+      <div class="grid">
+        <label>Début<input id="p-deb" type="time" value="${d.debut}" required></label>
+        <label>Fin<input id="p-fin" type="time" value="${d.fin}" required></label>
+        <label>Tarif horaire (€ HTVA)<input id="p-tarif" type="number" step="0.01" min="0" value="${d.tarif}" required></label>
+        <label>Frais de déplacement (€ HTVA)<input id="p-depl" type="number" step="0.01" min="0" value="0"></label>
+      </div></fieldset>
+    <div class="total"><span class="muted" id="fm-detail"></span><b id="fm-total"></b></div>
+    <p class="muted" style="margin:0;font-size:12px">${esc(reg.label)}${reg.mention?" · mention ajoutée sur la facture":""}. Le numéro suivant sera proposé automatiquement.</p>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="fm-x">Annuler</button><button class="btn primary" type="submit">Créer la facture</button></div>
+  </form></div>`;
+  const val=()=>{const h=r2(hours(document.getElementById("p-deb").value,document.getElementById("p-fin").value)),t=+document.getElementById("p-tarif").value||0,dep=+document.getElementById("p-depl").value||0;
+    const ht=r2(r2(h*t)+dep),tva=r2(ht*reg.taux/100);return{h,t,dep,ht,tva,total:r2(ht+tva)}};
+  const calc=()=>{const v=val();document.getElementById("fm-detail").textContent=`${fmtH(v.h)} h × ${fmtH(v.t)} €${v.dep?` + ${eur(v.dep)} déplacement`:""}${reg.taux?` + TVA ${eur(v.tva)}`:""}`;document.getElementById("fm-total").textContent=eur(v.total)};
+  calc();["p-deb","p-fin","p-tarif","p-depl"].forEach(id=>document.getElementById(id).oninput=calc);
+  const close=()=>layer.innerHTML="";
+  document.getElementById("fm-x").onclick=close;document.getElementById("ov").onclick=e=>{if(e.target.id==="ov")close()};
+  document.getElementById("fm").onsubmit=e=>{e.preventDefault();
+    const cbce=bceNorm(document.getElementById("c-bce").value);
+    if(!bceOk(cbce)){toast("Le n° d'entreprise de l'officine n'est pas valide.");return}
+    const v=val();if(v.h<=0){toast("L'heure de fin doit être après l'heure de début.");return}
+    const due=iso(addDays(TODAY,factu.delai||0));
+    const f={id:"f-"+d.id,demandeId:d.id,numero:factu.prochain,date:TODAY_ISO,echeance:due,
+      vendeur:{nom:factu.nom,rue:factu.rue,cp:factu.cp,ville:factu.ville,bce:factu.bce,tva:factu.tva,iban:factu.iban},
+      client:{nom:document.getElementById("c-nom").value.trim(),bce:cbce,rue:document.getElementById("c-rue").value.trim(),cp:document.getElementById("c-cp").value.trim(),ville:document.getElementById("c-ville").value.trim()},
+      mission:{date:d.date,debut:document.getElementById("p-deb").value,fin:document.getElementById("p-fin").value},
+      heures:v.h,tarif:v.t,deplacement:v.dep,regime:factu.regime,ht:v.ht,tva:v.tva,total:v.total,cree:nowIso()};
+    const {id,...data}=f;
+    write(async()=>{const b=writeBatch(db);b.set(doc(db,"remplacants",uid,"prive",id),data);b.update(doc(db,"remplacants",uid,"prive","factu"),{prochain:nextNumero(factu.prochain)});await b.commit()},`Facture ${f.numero} créée`)
+      .then(ok=>{if(!ok)return;factu.prochain=nextNumero(factu.prochain);factures.unshift(f);close();redraw();telecharger(f.numero+".xml",ublXml(f),"application/xml")});
+  };
+}
+const xmlEsc=s=>String(s??"").replace(/[<>&'"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
+const amt=n=>`currencyID="EUR">${n.toFixed(2)}`;
+// Facture UBL 2.1 conforme Peppol BIS Billing 3.0 (identifiant Peppol belge : schéma 0208 = n° BCE)
+function ublXml(f){
+  const reg=REGIMES[f.regime]||REGIMES.S, cat=reg.cat, taux=reg.taux;
+  const party=(p,tva)=>`<cac:Party><cbc:EndpointID schemeID="0208">${p.bce}</cbc:EndpointID><cac:PartyName><cbc:Name>${xmlEsc(p.nom)}</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>${xmlEsc(p.rue)}</cbc:StreetName><cbc:CityName>${xmlEsc(p.ville)}</cbc:CityName><cbc:PostalZone>${xmlEsc(p.cp)}</cbc:PostalZone><cac:Country><cbc:IdentificationCode>BE</cbc:IdentificationCode></cac:Country></cac:PostalAddress>${tva?`<cac:PartyTaxScheme><cbc:CompanyID>${xmlEsc(tva)}</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>`:""}<cac:PartyLegalEntity><cbc:RegistrationName>${xmlEsc(p.nom)}</cbc:RegistrationName><cbc:CompanyID schemeID="0208">${p.bce}</cbc:CompanyID></cac:PartyLegalEntity></cac:Party>`;
+  const taxCat=`<cbc:ID>${cat}</cbc:ID><cbc:Percent>${taux}</cbc:Percent>`;
+  const lignes=[[`Remplacement en officine le ${f.mission.date} (${f.mission.debut}-${f.mission.fin})`,f.heures,"HUR",f.tarif,r2(f.heures*f.tarif)]];
+  if(f.deplacement)lignes.push(["Frais de déplacement",1,"C62",f.deplacement,f.deplacement]);
+  const lineExt=r2(lignes.reduce((s,l)=>s+l[4],0));
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+<cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0</cbc:CustomizationID>
+<cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+<cbc:ID>${xmlEsc(f.numero)}</cbc:ID>
+<cbc:IssueDate>${f.date}</cbc:IssueDate>
+<cbc:DueDate>${f.echeance}</cbc:DueDate>
+<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+${reg.mention?`<cbc:Note>${xmlEsc(reg.mention)}</cbc:Note>\n`:""}<cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+<cbc:BuyerReference>Mission ${f.mission.date}</cbc:BuyerReference>
+<cac:AccountingSupplierParty>${party(f.vendeur,f.vendeur.tva)}</cac:AccountingSupplierParty>
+<cac:AccountingCustomerParty>${party(f.client,"BE"+f.client.bce)}</cac:AccountingCustomerParty>
+<cac:Delivery><cbc:ActualDeliveryDate>${f.mission.date}</cbc:ActualDeliveryDate></cac:Delivery>
+<cac:PaymentMeans><cbc:PaymentMeansCode>30</cbc:PaymentMeansCode><cbc:PaymentID>${xmlEsc(f.numero)}</cbc:PaymentID><cac:PayeeFinancialAccount><cbc:ID>${xmlEsc(f.vendeur.iban)}</cbc:ID></cac:PayeeFinancialAccount></cac:PaymentMeans>
+<cac:TaxTotal><cbc:TaxAmount ${amt(f.tva)}</cbc:TaxAmount><cac:TaxSubtotal><cbc:TaxableAmount ${amt(lineExt)}</cbc:TaxableAmount><cbc:TaxAmount ${amt(f.tva)}</cbc:TaxAmount><cac:TaxCategory>${taxCat}${cat==="E"?`<cbc:TaxExemptionReason>${xmlEsc(reg.mention)}</cbc:TaxExemptionReason>`:""}<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+<cac:LegalMonetaryTotal><cbc:LineExtensionAmount ${amt(lineExt)}</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount ${amt(lineExt)}</cbc:TaxExclusiveAmount><cbc:TaxInclusiveAmount ${amt(r2(lineExt+f.tva))}</cbc:TaxInclusiveAmount><cbc:PayableAmount ${amt(r2(lineExt+f.tva))}</cbc:PayableAmount></cac:LegalMonetaryTotal>
+${lignes.map((l,i)=>`<cac:InvoiceLine><cbc:ID>${i+1}</cbc:ID><cbc:InvoicedQuantity unitCode="${l[2]}">${l[1]}</cbc:InvoicedQuantity><cbc:LineExtensionAmount ${amt(l[4])}</cbc:LineExtensionAmount><cac:Item><cbc:Name>${xmlEsc(l[0])}</cbc:Name><cac:ClassifiedTaxCategory>${taxCat}<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory></cac:Item><cac:Price><cbc:PriceAmount ${amt(l[3])}</cbc:PriceAmount></cac:Price></cac:InvoiceLine>`).join("\n")}
+</Invoice>
+`;
+}
+function telecharger(nom,contenu,type){
+  const url=URL.createObjectURL(new Blob([contenu],{type}));
+  const a=document.createElement("a");a.href=url;a.download=nom;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+function imprimer(f){
+  const reg=REGIMES[f.regime]||REGIMES.S, w=window.open("","_blank");
+  if(!w){toast("Autorise les fenêtres pour imprimer la facture.");return}
+  const bloc=p=>`<b>${esc(p.nom)}</b><br>${esc(p.rue)}<br>${esc(p.cp)} ${esc(p.ville)}<br>BCE ${esc(bceFmt(p.bce))}${p.tva?`<br>TVA ${esc(p.tva)}`:""}`;
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facture ${esc(f.numero)}</title>
+  <style>body{font:15px/1.5 system-ui,sans-serif;color:#12302b;max-width:760px;margin:0 auto;padding:32px 20px}h1{font-size:26px;margin:0 0 4px}.two{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin:28px 0}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{text-align:left;padding:8px;border-bottom:1px solid #d6e0dc}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}.tot td{border:0;padding:4px 8px}.big{font-size:18px;font-weight:700}.muted{color:#5a6e68}@media print{button{display:none}}</style></head><body>
+  <h1>Facture ${esc(f.numero)}</h1><div class="muted">Date : ${f.date.split("-").reverse().join("/")} · Échéance : ${f.echeance.split("-").reverse().join("/")}</div>
+  <div class="two"><div><span class="muted">De</span><br>${bloc(f.vendeur)}</div><div><span class="muted">Pour</span><br>${bloc({...f.client,tva:"BE"+f.client.bce})}</div></div>
+  <table><thead><tr><th>Description</th><th class="n">Quantité</th><th class="n">Prix unitaire</th><th class="n">Montant HTVA</th></tr></thead><tbody>
+  <tr><td>Remplacement en officine le ${f.mission.date.split("-").reverse().join("/")} (${f.mission.debut}–${f.mission.fin})</td><td class="n">${fmtH(f.heures)} h</td><td class="n">${eur(f.tarif)}</td><td class="n">${eur(r2(f.heures*f.tarif))}</td></tr>
+  ${f.deplacement?`<tr><td>Frais de déplacement</td><td class="n">1</td><td class="n">${eur(f.deplacement)}</td><td class="n">${eur(f.deplacement)}</td></tr>`:""}
+  </tbody></table>
+  <table class="tot"><tr><td class="n">Total HTVA</td><td class="n" style="width:140px">${eur(f.ht)}</td></tr><tr><td class="n">TVA ${reg.taux} %</td><td class="n">${eur(f.tva)}</td></tr><tr><td class="n big">Total à payer</td><td class="n big">${eur(f.total)}</td></tr></table>
+  ${reg.mention?`<p>${esc(reg.mention)}.</p>`:""}
+  <p>À payer avant le ${f.echeance.split("-").reverse().join("/")} sur le compte <b>${esc(f.vendeur.iban)}</b>, communication : <b>${esc(f.numero)}</b>.</p>
+  <p class="muted" style="font-size:12px;margin-top:40px">Facture établie via Pharma Remplaçant. Version électronique Peppol disponible.</p>
+  <button onclick="print()" style="padding:10px 16px;font-size:15px">Imprimer ou enregistrer en PDF</button></body></html>`);
+  w.document.close();
+}
+
 /* ---------- ADMINISTRATION ---------- */
 const verifs=new Map();
 function loadVerif(id){
   if(verifs.has(id))return verifs.get(id);
   verifs.set(id,"…");
-  Promise.all([getDoc(doc(db,"remplacants",id,"prive","verif")),getDoc(doc(db,"remplacants",id,"prive","contact"))])
-    .then(([v,c])=>{verifs.set(id,{...(c.data()||{}),...(v.data()||{})});rerender()}).catch(()=>{verifs.set(id,{});rerender()});
+  Promise.all([getDoc(doc(db,"remplacants",id,"prive","verif")),getDoc(doc(db,"remplacants",id,"prive","contact")),getDoc(doc(db,"remplacants",id,"prive","abonnement"))])
+    .then(([v,c,a])=>{verifs.set(id,{...(c.data()||{}),...(v.data()||{}),abo:a.data()||null});rerender()}).catch(()=>{verifs.set(id,{});rerender()});
   return "…";
 }
 function setBloque(id,b){return write(()=>updateDoc(doc(db,"remplacants",id),{bloque:b,valide:!b,maj:nowIso()}),b?"Profil suspendu : il n'est plus visible":"Profil réactivé : il est à nouveau visible")}
 function vValidation(){
+  verifs.clear(); // recharge BCE, contact et demandes d'abonnement à chaque ouverture de l'onglet
   const draw=()=>{
   const all=Object.entries(RA).sort(([,x],[,y])=>(x.cree<y.cree?1:-1));
   const susp=all.filter(([,r])=>r.bloque).length;
@@ -590,9 +804,16 @@ function vValidation(){
       <tr><th>Tél.</th><td class="mono">${esc(x.tel||"—")}</td></tr>
       <tr><th>E-mail</th><td style="overflow-wrap:anywhere">${esc(x.email||"—")}</td></tr>
       <tr><th>Inscrit</th><td>${r.cree?nice(r.cree.slice(0,10)):"—"}</td></tr>
+      <tr><th>Formule</th><td>${premiumA(r,TODAY_ISO)?`<b>${FORMULES[r.premium.formule].nom}</b> jusqu'au ${niceY(r.premium.fin)}`:"À la mission"}${x.abo?.formule&&x.abo.formule!=="mission"&&!(premiumA(r,TODAY_ISO)&&r.premium.formule===x.abo.formule)?`<br><span class="status st-attente">Demande : ${FORMULES[x.abo.formule].nom}</span> <span class="muted" style="font-size:12px">le ${nice(x.abo.demandeLe.slice(0,10))}</span>`:""}</td></tr>
     </tbody></table></div>
+    <div class="row"><button class="btn small" data-prem="${esc(id)}|mois">Activer Premium mensuel</button><button class="btn small" data-prem="${esc(id)}|an">Activer Premium annuel</button>${premiumA(r,TODAY_ISO)?`<button class="btn small danger" data-prem="${esc(id)}|stop">Arrêter le Premium</button>`:""}</div>
     ${r.bloque?`<button class="btn small" data-unblock="${esc(id)}">Réactiver</button>`:`<button class="btn danger small" data-block="${esc(id)}">Suspendre</button>`}
   </div>`}).join("")}</div>`:`<div class="empty">Aucun remplaçant inscrit pour l'instant. Partage le lien d'inscription à tes collègues.</div>`}</div>`;
+  app.querySelectorAll("[data-prem]").forEach(b=>b.onclick=()=>{const [id,k]=b.dataset.prem.split("|"),r=RA[id];
+    if(k==="stop"){confirmSheet("Arrêter le Premium ?","Les missions suivantes seront de nouveau à 2 €.","Arrêter",()=>write(()=>updateDoc(doc(db,"remplacants",id),{premium:{...r.premium,fin:iso(addDays(TODAY,-1))}}),"Premium arrêté"));return}
+    const debut=premiumA(r,TODAY_ISO)?iso(addDays(parse(r.premium.fin),1)):TODAY_ISO, fin=addMonths(debut,k==="an"?12:1);
+    confirmSheet(`Activer ${FORMULES[k].nom} ?`,`À faire après réception du paiement (${FORMULES[k].prix}). Valable du ${niceY(debut)} au ${niceY(fin)}.`,"Activer",()=>write(()=>updateDoc(doc(db,"remplacants",id),{premium:{formule:k,debut,fin}}),"Premium activé"));
+  });
   app.querySelectorAll("[data-unblock]").forEach(b=>b.onclick=()=>{b.disabled=true;setBloque(b.dataset.unblock,false)});
   app.querySelectorAll("[data-block]").forEach(b=>b.onclick=()=>confirmSheet("Suspendre ce profil ?","Il ne sera plus visible par les pharmacies et ne pourra pas se réactiver seul.","Suspendre",()=>setBloque(b.dataset.block,true)));
   };
@@ -609,11 +830,13 @@ function vVue(){
   const quota=lecturesJour<25000?["ok","Tout va bien","Tu restes largement dans l'offre gratuite de Firebase."]
     :lecturesJour<45000?["warn","Optimisation conseillée","La plateforme grandit : demande à Claude d'optimiser le chargement des données avant d'atteindre le quota gratuit."]
     :["bad","Risque de dépasser le quota gratuit","Préviens Claude rapidement : optimisation ou passage à l'offre Firebase à l'usage (quelques euros par mois)."];
-  const perR=Object.entries(conf.reduce((m,d)=>(m[d.rid]=(m[d.rid]||0)+1,m),{})).sort((a,b)=>b[1]-a[1]);
+  const perR=Object.entries(conf.reduce((m,d)=>{m[d.rid]=m[d.rid]||[0,0];m[d.rid][0]++;m[d.rid][1]+=fraisMission(d);return m},{})).sort((a,b)=>b[1][0]-a[1][0]);
+  const fraisTot=conf.reduce((s,d)=>s+fraisMission(d),0);
+  const prem=Object.values(RA).filter(r=>premiumA(r,TODAY_ISO)), nMois=prem.filter(r=>r.premium.formule==="mois").length, nAn=prem.length-nMois;
   app.innerHTML=`<div class="stack"><div><h1>Vue d'ensemble</h1><p class="lede">L'activité de la plateforme, en direct.</p></div>
-  <div class="panel"><div class="stat"><div><b>${nV}/${nR}</b><span>remplaçants visibles</span></div><div><b>${nP}</b><span>officines inscrites</span></div><div><b>${att.length}</b><span>demandes en attente</span></div><div><b>${conf.length}</b><span>missions confirmées</span></div><div><b>${A.length?fmtNote(notes):"—"}</b><span>note moyenne (${A.length} avis)</span></div><div><b>${conf.length*FRAIS} €</b><span>frais missions (${FRAIS} € TVAC/mission)</span></div></div></div>
+  <div class="panel"><div class="stat"><div><b>${nV}/${nR}</b><span>remplaçants visibles</span></div><div><b>${nP}</b><span>officines inscrites</span></div><div><b>${att.length}</b><span>demandes en attente</span></div><div><b>${conf.length}</b><span>missions confirmées</span></div><div><b>${A.length?fmtNote(notes):"—"}</b><span>note moyenne (${A.length} avis)</span></div><div><b>${fraisTot} €</b><span>frais missions (${FRAIS} € TVAC/mission)</span></div><div><b>${nMois}+${nAn}</b><span>Premium mensuels + annuels</span></div></div></div>
   <div class="notice ${quota[0]==="ok"?"ok":""} install" style="${quota[0]==="bad"?"background:var(--bad-soft)":""}"><span><b style="${quota[0]==="bad"?"color:var(--bad)":""}">Capacité Firebase : ${quota[1]}.</b> ${quota[2]}<br><span class="hint">Estimation : ${lecturesJour.toLocaleString("fr-BE")} lectures par jour sur environ 50 000 gratuites (${utilisateurs} inscrits, 2 ouvertures par jour chacun). Chiffre réel : Firebase > Firestore > Utilisation.</span></span></div>
-  <div class="panel stack"><h2>Frais par remplaçant</h2><p class="muted" style="margin:0;font-size:14px">${FRAIS} € TVAC par mission acceptée. Pendant le pilote, ces montants sont indicatifs.</p>${perR.length?`<div class="tbl"><table><thead><tr><th>Remplaçant</th><th>Missions acceptées</th><th>Montant</th></tr></thead><tbody>${perR.map(([rid,n])=>`<tr><td>${esc(RA[rid]?.nom||"—")}</td><td class="mono">${n}</td><td class="mono">${n*FRAIS} €</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune mission acceptée pour l'instant.</p>`}</div>
+  <div class="panel stack"><h2>Frais par remplaçant</h2><p class="muted" style="margin:0;font-size:14px">${FRAIS} € TVAC par mission acceptée, sauf pendant un Premium (4,99 €/mois ou 34,99 €/an). Pendant le pilote, ces montants sont indicatifs.</p>${perR.length?`<div class="tbl"><table><thead><tr><th>Remplaçant</th><th>Missions acceptées</th><th>Montant</th></tr></thead><tbody>${perR.map(([rid,[n,f]])=>`<tr><td>${esc(RA[rid]?.nom||"—")}${premiumA(RA[rid],TODAY_ISO)?` <span class="chip ok">Premium</span>`:""}</td><td class="mono">${n}</td><td class="mono">${f} €</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune mission acceptée pour l'instant.</p>`}</div>
   <div class="panel stack"><h2>Officines inscrites</h2>${nP?`<div class="tbl"><table><thead><tr><th>Officine</th><th>Localité</th><th>Titulaire</th><th>Inscrite</th></tr></thead><tbody>${Object.values(P).map(p=>`<tr><td>${esc(p.nom)}</td><td>${esc(locLabel(p.commune))}</td><td>${esc(p.titulaire)}</td><td>${p.cree?nice(p.cree.slice(0,10)):"—"}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune officine inscrite pour l'instant.</p>`}</div>
   <div class="panel stack"><h2>Dernières missions confirmées</h2>${conf.length?`<div class="tbl"><table><thead><tr><th>Date</th><th>Officine</th><th>Remplaçant</th><th>Horaire</th></tr></thead><tbody>${conf.sort((a,b)=>a.date<b.date?1:-1).slice(0,20).map(d=>`<tr><td>${nice(d.date)}</td><td>${esc(P[d.pid]?.nom||d.pnom)}</td><td>${esc(RA[d.rid]?.nom||d.rnom||"—")}</td><td class="mono">${d.debut}–${d.fin}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune mission confirmée pour l'instant.</p>`}</div></div>`;
   };
