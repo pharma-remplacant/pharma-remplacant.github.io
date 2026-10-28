@@ -1,6 +1,6 @@
 // Service worker : rend l'appli installable et garde l'interface en cache.
 // Les données restent toujours lues en direct depuis Firebase.
-const CACHE = "pharma-remplacant-v7";
+const CACHE = "pharma-remplacant-v8";
 const FILES = ["./", "index.html", "style.css", "app.js", "localites.js", "firebase-config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -20,4 +20,13 @@ self.addEventListener("fetch", e => {
       return r;
     }).catch(() => caches.match(e.request))
   );
+});
+
+// Toucher une notification ouvre l'appli (ou la ramène au premier plan).
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) if ("focus" in c) return c.focus();
+    return self.clients.openWindow("./");
+  }));
 });

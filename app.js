@@ -154,7 +154,7 @@ async function verifierEmail(){
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&user&&!user.emailVerified)user.reload().then(()=>{if(user.emailVerified)return user.getIdToken(true).then(()=>{watchRV();rerender()})}).catch(()=>{})});
 function stopAll(){unsubs.forEach(u=>u());unsubs=[];contacts.clear();rvUnsub=null}
-function resetState(){factu=factures=abo=null;myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
+function resetState(){document.title="Pharma Remplaçant";factu=factures=abo=null;myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
 
 if(!configured)vSetup();
 else onAuthStateChanged(auth,async u=>{
@@ -167,7 +167,7 @@ else onAuthStateChanged(auth,async u=>{
     [doc(db,"pharmacies",uid),s=>{myP=s.exists()?s.data():null;if(!isAdmin)P=myP?{[uid]:myP}:{};watchRV()}],
     [collection(db,"avis"),s=>{A=s.docs.map(x=>({id:x.id,...x.data()}))}],
   ];
-  const putD=(tag)=>s=>{for(const k of Object.keys(Dmap))if(Dmap[k].__t===tag)delete Dmap[k];s.forEach(x=>{Dmap[x.id]={id:x.id,...x.data(),__t:tag}});D=Object.values(Dmap)};
+  const putD=(tag)=>s=>{for(const k of Object.keys(Dmap))if(Dmap[k].__t===tag)delete Dmap[k];s.forEach(x=>{Dmap[x.id]={id:x.id,...x.data(),__t:tag}});D=Object.values(Dmap);if(ready)checkNotifs(true)};
   if(isAdmin){
     subs.push([collection(db,"remplacants"),s=>{RA={};s.forEach(x=>RA[x.id]=x.data())}]);
     subs.push([collection(db,"pharmacies"),s=>{P={};s.forEach(x=>P[x.id]=x.data())}]);
@@ -179,10 +179,58 @@ else onAuthStateChanged(auth,async u=>{
   let pending=subs.length;
   for(const [ref,fn] of subs){
     let first=true;
-    unsubs.push(onSnapshot(ref,s=>{fn(s);if(first){first=false;if(--pending===0){ready=true;mount()}}else rerender()},
-      e=>{console.error(e);if(first){first=false;if(--pending===0){ready=true;mount()}}}));
+    unsubs.push(onSnapshot(ref,s=>{fn(s);if(first){first=false;if(--pending===0){ready=true;checkNotifs(false);mount()}}else rerender()},
+      e=>{console.error(e);if(first){first=false;if(--pending===0){ready=true;checkNotifs(false);mount()}}}));
   }
 });
+
+/* ---------- notifications (appli ouverte ou en arrière-plan) ---------- */
+const notifSupport=()=>"Notification" in window;
+const notifState=()=>notifSupport()?Notification.permission:"unsupported";
+function evenements(){
+  const out=[];
+  for(const d of D){
+    const quand=`${nice(d.date)} · ${d.debut}–${d.fin}`;
+    if(d.rid===uid&&d.statut==="attente"&&d.date>=TODAY_ISO)out.push({k:d.id+":attente",title:"Nouvelle demande de remplacement",body:`${d.pnom} (${d.pcommune}) · ${quand}`});
+    else if(d.pid===uid&&(d.statut==="acceptee"||d.statut==="refusee"))out.push({k:d.id+":"+d.statut,title:d.statut==="acceptee"?"Mission confirmée":"Demande refusée",body:`${rem(d.rid)?.nom||d.rnom} · ${quand}`});
+    else if(d.rid===uid&&d.statut==="annulee"&&d.date>=TODAY_ISO)out.push({k:d.id+":annulee",title:"Mission annulée",body:`${d.pnom} · ${quand}`});
+  }
+  return out;
+}
+// notifier=false au chargement : on résume ce qui est arrivé depuis la dernière visite sans multiplier les alertes
+function checkNotifs(notifier){
+  if(!uid)return;
+  const cle="pr-vu-"+uid, brut=store.get(cle);
+  let vu;try{vu=new Set(JSON.parse(brut||"[]"))}catch(e){vu=new Set()}
+  const nouveaux=evenements().filter(e=>!vu.has(e.k));
+  nouveaux.forEach(e=>vu.add(e.k));
+  store.set(cle,JSON.stringify([...vu].slice(-400)));
+  if(notifier)nouveaux.forEach(e=>alerter(e.title,e.body,e.k));
+  else if(brut!==null&&nouveaux.length)toast(nouveaux.length===1?nouveaux[0].title:`${nouveaux.length} nouveautés depuis ta dernière visite`);
+  majBadge();
+}
+async function alerter(title,body,tag){
+  toast(title);
+  if(notifState()!=="granted")return;
+  try{
+    const reg=await navigator.serviceWorker?.getRegistration();
+    if(reg)await reg.showNotification(title,{body,tag,icon:"icon-192.png",badge:"icon-192.png"});
+    else new Notification(title,{body,tag,icon:"icon-192.png"});
+  }catch(e){}
+}
+function majBadge(){
+  const n=D.filter(d=>d.rid===uid&&d.statut==="attente"&&d.date>=TODAY_ISO).length;
+  document.title=(n?`(${n}) `:"")+"Pharma Remplaçant";
+  try{if(n&&navigator.setAppBadge)navigator.setAppBadge(n);else if(navigator.clearAppBadge)navigator.clearAppBadge()}catch(e){}
+}
+function notifInvite(){
+  if(notifState()!=="default"||store.get("pr-notif-plus-tard"))return "";
+  return `<div class="notice ok install"><span><b>Active les notifications</b> pour être prévenu dès qu'une demande arrive.</span><span class="row"><button class="btn small primary" data-notif-on>Activer</button><button class="linkbtn" data-notif-later>Plus tard</button></span></div>`;
+}
+function bindNotif(root){
+  root.querySelectorAll("[data-notif-on]").forEach(b=>b.onclick=()=>Notification.requestPermission().then(p=>{toast(p==="granted"?"Notifications activées":"Notifications refusées : tu peux les réactiver dans les réglages du navigateur.");if(p==="granted")alerter("Notifications activées","Tu seras prévenu des nouvelles demandes.","test");rerender()}));
+  root.querySelectorAll("[data-notif-later]").forEach(b=>b.onclick=()=>{store.set("pr-notif-plus-tard","1");rerender()});
+}
 
 /* ---------- navigation ---------- */
 let lastTabs="";
@@ -403,10 +451,10 @@ function vDemandes(){
   const draw=()=>{
   const mine=D.filter(d=>d.rid===uid).sort((a,b)=>(a.statut==="attente"?0:1)-(b.statut==="attente"?0:1)||(a.date<b.date?-1:1));
   const toRate=mine.filter(d=>d.statut==="acceptee"&&d.date<TODAY_ISO&&!A.some(a=>a.demandeId===d.id&&a.de===uid)).length;
-  app.innerHTML=`<div class="stack">${banner()}<div><h1>Demandes reçues</h1><p class="lede">Une pharmacie a vu un de tes jours ouverts et te demande. Accepter bloque le jour dans ton agenda et affiche ses coordonnées.</p><p class="hint" style="margin:6px 0 0">Gratuit pendant le pilote. Ensuite, ${FRAIS} € TVAC par mission acceptée, rien pour un refus.</p></div>
+  app.innerHTML=`<div class="stack">${banner()}${notifInvite()}<div><h1>Demandes reçues</h1><p class="lede">Une pharmacie a vu un de tes jours ouverts et te demande. Accepter bloque le jour dans ton agenda et affiche ses coordonnées.</p><p class="hint" style="margin:6px 0 0">Gratuit pendant le pilote. Ensuite, ${FRAIS} € TVAC par mission acceptée, rien pour un refus.</p></div>
     ${toRate?`<div class="notice ok"><b>${toRate} mission${toRate>1?"s":""} à noter.</b> Ton avis aide les autres remplaçants à choisir leurs officines.</div>`:""}
     ${mine.length?`<div class="cards">${mine.map(d=>reqCard(d,"r")).join("")}</div>`:`<div class="empty">Aucune demande pour l'instant. Ouvre des jours dans ton agenda pour être visible.</div>`}</div>`;
-  bindBanner();bindReqActions(app);};
+  bindBanner();bindNotif(app);bindReqActions(app);};
   draw();return{refresh:draw};
 }
 
@@ -573,10 +621,10 @@ function vMesDemandes(){
   const draw=()=>{
   const ph=myP, mine=D.filter(d=>d.pid===uid).sort((a,b)=>a.date<b.date?1:-1);
   const up=mine.filter(d=>d.date>=TODAY_ISO).reverse(), old=mine.filter(d=>d.date<TODAY_ISO);
-  app.innerHTML=`<div class="stack">${banner()}<div><h1>Mes demandes</h1><p class="lede">${esc(ph.nom)}, ${esc(ph.commune)}. Les réponses des remplaçants s'affichent ici en direct.</p></div>
+  app.innerHTML=`<div class="stack">${banner()}${notifInvite()}<div><h1>Mes demandes</h1><p class="lede">${esc(ph.nom)}, ${esc(ph.commune)}. Les réponses des remplaçants s'affichent ici en direct.</p></div>
   ${up.length?`<div class="cards">${up.map(d=>reqCard(d,"p")).join("")}</div>`:`<div class="empty">Aucune demande à venir. Cherche un remplaçant dans l'onglet « Trouver un remplaçant ».</div>`}
   ${old.length?`<h2>Missions passées</h2><div class="cards">${old.map(d=>reqCard(d,"p")).join("")}</div>`:""}</div>`;
-  bindBanner();bindReqActions(app);};
+  bindBanner();bindNotif(app);bindReqActions(app);};
   draw();return{refresh:draw};
 }
 
@@ -584,10 +632,12 @@ function vMesDemandes(){
 function vCompte(){
   app.innerHTML=`<div class="stack">${banner()}<div><h1>Mon compte</h1><p class="lede">Connecté avec ${esc(user.email)}.</p></div>
   ${myR?abonnementPanel():""}
+  <div class="panel stack"><h2>Notifications</h2>${notifState()==="granted"?`<p style="margin:0">✓ Activées sur cet appareil. Tu es prévenu quand l'appli est ouverte ou en arrière-plan.</p>`:notifState()==="denied"?`<p style="margin:0">Bloquées sur cet appareil. Pour les réactiver : réglages du navigateur > Notifications > pharma-remplacant.github.io.</p>`:notifState()==="unsupported"?`<p style="margin:0">Ton navigateur ne gère pas les notifications. Sur iPhone, installe d'abord l'appli sur l'écran d'accueil.</p>`:`<div class="row"><button class="btn primary" data-notif-on>Activer les notifications</button></div>`}</div>
   <div class="panel stack"><h2>Session</h2><div class="row"><button class="btn" id="c-out">Me déconnecter</button></div></div>
   <div class="panel stack"><h2>Supprimer mon compte</h2><p class="muted" style="margin:0;font-size:14px">Supprime ton profil, ton officine, tes coordonnées, tes factures préparées et ton accès. Télécharge d'abord tes factures : tu dois les conserver pour ta comptabilité. L'historique des missions passées reste visible par l'autre partie.</p><div class="row"><button class="btn danger" id="c-del">Supprimer mon compte</button></div></div></div>`;
   bindBanner();
   if(myR){bindAbonnement(app,()=>vCompte());if(abo===null){abo={};getDoc(doc(db,"remplacants",uid,"prive","abonnement")).then(s=>{abo=s.data()||{};if(tab==="compte")vCompte()}).catch(()=>{})}}
+  bindNotif(app);
   document.getElementById("c-out").onclick=()=>signOut(auth);
   document.getElementById("c-del").onclick=()=>confirmSheet("Supprimer ton compte ?","Cette action est définitive.","Supprimer définitivement",async()=>{
     try{
