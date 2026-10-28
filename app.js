@@ -45,19 +45,28 @@ function toast(msg){layer.querySelector(".toast")?.remove();const t=document.cre
 /* ---------- installation sur l'écran d'accueil ---------- */
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 let installEvt=null;
-window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;rerender()});
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;renderInstallBar()});
+window.addEventListener("appinstalled",()=>{installEvt=null;renderInstallBar();toast("Appli installée sur ton écran d'accueil")});
 const standalone=()=>window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-function installBanner(){
-  if(standalone()||store.get("pr-install-hide"))return"";
-  if(installEvt)return `<div class="notice ok install"><span><b>Installe l'appli</b> sur ton écran d'accueil pour l'ouvrir en un geste.</span><span class="row"><button class="btn small primary" id="inst-go">Installer</button><button class="linkbtn" id="inst-x">Plus tard</button></span></div>`;
-  if(isIOS)return `<div class="notice ok install"><span><b>Installe l'appli</b> : touche le bouton Partager de Safari, puis « Sur l'écran d'accueil ».</span><button class="linkbtn" id="inst-x">OK</button></div>`;
-  return "";
+const isMobile=/android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+// Bandeau en haut de page qui propose d'installer l'appli (masquable 7 jours)
+function renderInstallBar(){
+  const bar=document.getElementById("installbar"); if(!bar)return;
+  const cache=+(store.get("pr-install-hide")||0);
+  if(standalone()||Date.now()-cache<7*864e5){bar.hidden=true;bar.innerHTML="";return}
+  const txt=installEvt?"Accès en un geste, en plein écran, comme une vraie appli."
+    :isIOS?"Dans Safari, touche le bouton Partager puis « Sur l'écran d'accueil »."
+    :isMobile?"Menu ⋮ du navigateur, puis « Ajouter à l'écran d'accueil » ou « Installer l'application »."
+    :"Clique sur l'icône « Installer » dans la barre d'adresse du navigateur.";
+  bar.innerHTML=`<div class="wrap installbar"><img src="icon-192.png" alt="" width="36" height="36"><span><b>Télécharge l'appli Pharma Remplaçant</b><br><span class="hint">${txt}</span></span><span class="row">${installEvt?`<button class="btn small primary" id="inst-go">Installer</button>`:""}<button class="linkbtn" id="inst-x" aria-label="Masquer le bandeau">Plus tard</button></span></div>`;
+  bar.hidden=false;
+  document.getElementById("inst-go")?.addEventListener("click",async()=>{installEvt.prompt();await installEvt.userChoice.catch(()=>{});installEvt=null;renderInstallBar()});
+  document.getElementById("inst-x").addEventListener("click",()=>{store.set("pr-install-hide",String(Date.now()));renderInstallBar()});
 }
-function bindInstall(){
-  document.getElementById("inst-go")?.addEventListener("click",async()=>{installEvt.prompt();await installEvt.userChoice.catch(()=>{});installEvt=null;rerender()});
-  document.getElementById("inst-x")?.addEventListener("click",()=>{store.set("pr-install-hide","1");rerender()});
-}
+function installBanner(){return ""}
+function bindInstall(){}
+renderInstallBar();
 
 /* ---------- Firebase ---------- */
 const configured=firebaseConfig.apiKey&&firebaseConfig.apiKey!=="A_REMPLACER";
