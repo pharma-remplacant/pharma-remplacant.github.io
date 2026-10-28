@@ -146,5 +146,55 @@ service cloud.firestore {
         && avisValide(request.resource.data);
       allow delete: if isAdmin();
     }
+
+    // ----- Emploi : offres des officines et annonces des candidats, lisibles par tous (même sans compte) -----
+    function poste(v) { return v in ['pharmacien', 'assistant', 'etudiant', 'autre']; }
+    function contrat(v) { return v in ['CDI', 'CDD', 'Flexi-job', 'Job étudiant', 'Intérim']; }
+    function dateOuVide(v) { return v == '' || isDate(v); }
+    function offreValide(d) {
+      return d.keys().hasOnly(['titre', 'poste', 'contrat', 'horaire', 'commune', 'debut', 'description', 'officine', 'auteur', 'statut', 'cree', 'maj'])
+        && str(d.titre, 100) && d.titre.size() > 0 && poste(d.poste) && contrat(d.contrat)
+        && str(d.horaire, 60) && str(d.commune, 80) && dateOuVide(d.debut)
+        && str(d.description, 1500) && str(d.officine, 120)
+        && d.auteur == me() && d.statut in ['ouverte', 'pourvue'] && str(d.cree, 40) && str(d.maj, 40);
+    }
+    match /offres/{id} {
+      allow read: if resource.data.statut == 'ouverte' || (signedIn() && (resource.data.auteur == me() || isAdmin()));
+      allow create: if verified() && exists(chemin('pharmacies/' + me())) && offreValide(request.resource.data);
+      allow update: if verified() && resource.data.auteur == me() && offreValide(request.resource.data)
+        && request.resource.data.cree == resource.data.cree;
+      allow delete: if signedIn() && (resource.data.auteur == me() || isAdmin());
+    }
+
+    function annonceValide(d) {
+      return d.keys().hasOnly(['pseudo', 'poste', 'commune', 'rayon', 'disponible', 'contrats', 'presentation', 'statut', 'cree', 'maj'])
+        && str(d.pseudo, 40) && d.pseudo.size() > 0 && poste(d.poste) && str(d.commune, 80)
+        && num(d.rayon, 0, 300) && dateOuVide(d.disponible)
+        && d.contrats is list && d.contrats.size() >= 1 && d.contrats.size() <= 5
+        && str(d.presentation, 1000) && d.statut in ['visible', 'masquee'] && str(d.cree, 40) && str(d.maj, 40);
+    }
+    match /candidats/{cid} {
+      allow read: if resource.data.statut == 'visible' || (signedIn() && (me() == cid || isAdmin()));
+      allow create, update: if verified() && me() == cid && annonceValide(request.resource.data);
+      allow delete: if signedIn() && (me() == cid || isAdmin());
+    }
+
+    // Candidature (candidat → officine) ou proposition (officine → candidat), lisible par les deux seulement.
+    function messageValide(d) {
+      return d.keys().hasOnly(['sens', 'offreId', 'otitre', 'pid', 'cid', 'nom', 'tel', 'email', 'message', 'cree'])
+        && str(d.nom, 100) && d.nom.size() > 0 && str(d.tel, 40) && str(d.email, 120)
+        && str(d.message, 1000) && str(d.otitre, 100) && str(d.offreId, 40) && str(d.cree, 40);
+    }
+    match /candidatures/{id} {
+      allow read: if signedIn() && (resource.data.pid == me() || resource.data.cid == me() || isAdmin());
+      allow create: if verified() && messageValide(request.resource.data) && (
+        (request.resource.data.sens == 'postule' && request.resource.data.cid == me()
+          && get(chemin('offres/' + request.resource.data.offreId)).data.auteur == request.resource.data.pid
+          && get(chemin('offres/' + request.resource.data.offreId)).data.statut == 'ouverte')
+        || (request.resource.data.sens == 'propose' && request.resource.data.pid == me()
+          && exists(chemin('pharmacies/' + me()))
+          && get(chemin('candidats/' + request.resource.data.cid)).data.statut == 'visible'));
+      allow delete: if signedIn() && (resource.data.pid == me() || resource.data.cid == me() || isAdmin());
+    }
   }
 }

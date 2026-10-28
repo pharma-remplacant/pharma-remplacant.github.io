@@ -81,6 +81,7 @@ let role=store.get("pr-role")||"r", tab=null, calMonth=new Date(TODAY.getFullYea
 let search={date:iso(nextDow(5)),statut:"tous",logiciel:"",debut:"08:30",fin:"18:30"};
 let localDispo=null, dispoTimer=null, current=null, authMode="login";
 {const h=location.hash.replace("#","");
+ if(h==="emploi"){role="e";store.set("pr-role",role)}
  if(h.startsWith("inscription")){authMode="register";if(h==="inscription-pharmacie")role="p";else if(h==="inscription-remplacant")role="r";store.set("pr-role",role)}}
 const contacts=new Map(); // "r:<id>" | "p:<id>" -> objet, "…" pendant le chargement, null si illisible
 
@@ -117,7 +118,7 @@ function vAuth(){
       <label>E-mail<input id="a-email" type="email" required autocomplete="email"></label>
       ${reset?"":`<label>Mot de passe<input id="a-pass" type="password" required minlength="8" autocomplete="${reg?"new-password":"current-password"}">${reg?`<span class="hint">8 caractères minimum. Évite un mot de passe déjà utilisé ailleurs.</span>`:""}</label>`}
       <button class="btn primary" type="submit">${reset?"Envoyer le lien":reg?"Créer mon compte":"Me connecter"}</button>
-      <div class="auth-links">${reset?`<button type="button" class="linkbtn" id="m-back">Retour à la connexion</button>`:`<button type="button" class="linkbtn" id="m-reset">Mot de passe oublié ?</button>`}<a class="linkbtn" href="decouvrir/">Découvrir Pharma Remplaçant</a></div>
+      <div class="auth-links">${reset?`<button type="button" class="linkbtn" id="m-back">Retour à la connexion</button>`:`<button type="button" class="linkbtn" id="m-reset">Mot de passe oublié ?</button>`}<a class="linkbtn" href="decouvrir/">Découvrir Pharma Remplaçant</a><a class="linkbtn" href="emploi/">Offres d'emploi</a></div>
     </form>
     <p class="hint" style="text-align:center;margin:0"><a href="legal/#mentions">Mentions légales</a> · <a href="legal/#conditions">Conditions d'utilisation</a> · <a href="legal/#confidentialite">Confidentialité</a></p>
     ${installBanner()}
@@ -154,7 +155,7 @@ async function verifierEmail(){
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&user&&!user.emailVerified)user.reload().then(()=>{if(user.emailVerified)return user.getIdToken(true).then(()=>{watchRV();rerender()})}).catch(()=>{})});
 function stopAll(){unsubs.forEach(u=>u());unsubs=[];contacts.clear();rvUnsub=null}
-function resetState(){document.title="Pharma Remplaçant";factu=factures=abo=null;myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
+function resetState(){OFF=CAND=null;mesOffres=[];monAnnonce=undefined;emploiOn=false;C={};document.title="Pharma Remplaçant";factu=factures=abo=null;myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
 
 if(!configured)vSetup();
 else onAuthStateChanged(auth,async u=>{
@@ -176,6 +177,10 @@ else onAuthStateChanged(auth,async u=>{
     subs.push([query(collection(db,"demandes"),where("rid","==",uid)),putD("r")]);
     subs.push([query(collection(db,"demandes"),where("pid","==",uid)),putD("p")]);
   }
+  {
+    subs.push([query(collection(db,"candidatures"),where("pid","==",uid)),putC("p")]);
+    subs.push([query(collection(db,"candidatures"),where("cid","==",uid)),putC("c")]);
+  }
   let pending=subs.length;
   for(const [ref,fn] of subs){
     let first=true;
@@ -194,6 +199,10 @@ function evenements(){
     if(d.rid===uid&&d.statut==="attente"&&d.date>=TODAY_ISO)out.push({k:d.id+":attente",title:"Nouvelle demande de remplacement",body:`${d.pnom} (${d.pcommune}) · ${quand}`});
     else if(d.pid===uid&&(d.statut==="acceptee"||d.statut==="refusee"))out.push({k:d.id+":"+d.statut,title:d.statut==="acceptee"?"Mission confirmée":"Demande refusée",body:`${rem(d.rid)?.nom||d.rnom} · ${quand}`});
     else if(d.rid===uid&&d.statut==="annulee"&&d.date>=TODAY_ISO)out.push({k:d.id+":annulee",title:"Mission annulée",body:`${d.pnom} · ${quand}`});
+  }
+  for(const m of Object.values(C)){
+    if(m.pid===uid&&m.sens==="postule")out.push({k:"m:"+m.id,title:"Nouvelle candidature",body:`${m.nom} · ${m.otitre}`});
+    else if(m.cid===uid&&m.sens==="propose")out.push({k:"m:"+m.id,title:"Une officine te contacte",body:m.nom});
   }
   return out;
 }
@@ -236,6 +245,7 @@ function bindNotif(root){
 let lastTabs="";
 function tabsFor(){
   if(role==="a")return[["validation","Remplaçants"],["vue","Vue d'ensemble"]];
+  if(role==="e")return emploiTabs();
   if(role==="r"){
     if(!myR)return[["inscription","Créer mon profil"],["compte","Mon compte"]];
     const pend=D.filter(d=>d.rid===uid&&d.statut==="attente"&&d.date>=TODAY_ISO).length;
@@ -255,7 +265,7 @@ function renderTabs(){
 }
 rolesEl.querySelectorAll("button").forEach(b=>b.onclick=()=>{role=b.dataset.role;store.set("pr-role",role);tab=null;mount()});
 
-const VIEWS={agenda:vAgenda,demandes:vDemandes,profil:vProfil,inscription:vProfil,trouver:vTrouver,mesdemandes:vMesDemandes,officine:vOfficine,validation:vValidation,vue:vVue,compte:vCompte,facturation:vFacturation};
+const VIEWS={agenda:vAgenda,demandes:vDemandes,profil:vProfil,inscription:vProfil,trouver:vTrouver,mesdemandes:vMesDemandes,officine:vOfficine,validation:vValidation,vue:vVue,compte:vCompte,facturation:vFacturation,offres:vOffres,candidats:vCandidats,annonce:vAnnonce,mesoffres:vMesOffres,messages:vMessages};
 function mount(){
   if(!user||!ready)return;
   if(role==="a"&&!isAdmin)role="r";
@@ -861,6 +871,224 @@ function imprimer(f){
   <button id="imp" style="padding:10px 16px;font-size:15px">Imprimer ou enregistrer en PDF</button></body></html>`);
   w.document.close();
   w.document.getElementById("imp").addEventListener("click",()=>w.print());
+}
+
+/* ---------- EMPLOI : offres des officines, annonces des candidats, messages ---------- */
+const POSTES={pharmacien:"Pharmacien·ne",assistant:"Assistant·e pharmaceutico-technique",etudiant:"Étudiant·e",autre:"Autre poste en officine"};
+const CONTRATS=["CDI","CDD","Flexi-job","Job étudiant","Intérim"];
+const EXPIRE_JOURS=60; // une offre ou une annonce disparaît de la liste publique après 60 jours sans mise à jour
+let OFF=null, CAND=null, mesOffres=[], monAnnonce=undefined, emploiOn=false;
+let C={}; // messages (candidatures et propositions) envoyés ou reçus
+const recent=x=>(x.maj||x.cree||"")>=iso(addDays(TODAY,-EXPIRE_JOURS));
+function emploiWatch(){
+  if(emploiOn)return;emploiOn=true;
+  unsubs.push(onSnapshot(query(collection(db,"offres"),where("statut","==","ouverte")),s=>{OFF=s.docs.map(x=>({id:x.id,...x.data()}));rerender()},e=>{console.error(e);OFF=[];rerender()}));
+  unsubs.push(onSnapshot(query(collection(db,"candidats"),where("statut","==","visible")),s=>{CAND=s.docs.map(x=>({id:x.id,...x.data()}));rerender()},e=>{console.error(e);CAND=[];rerender()}));
+  unsubs.push(onSnapshot(query(collection(db,"offres"),where("auteur","==",uid)),s=>{mesOffres=s.docs.map(x=>({id:x.id,...x.data()}));rerender()},e=>console.error(e)));
+  unsubs.push(onSnapshot(doc(db,"candidats",uid),s=>{monAnnonce=s.exists()?s.data():null;rerender()},e=>{console.error(e);monAnnonce=null}));
+}
+const putC=tag=>s=>{for(const k of Object.keys(C))if(C[k].__t===tag)delete C[k];s.forEach(x=>{C[x.id]={id:x.id,...x.data(),__t:tag}});if(ready){checkNotifs(true);rerender()}};
+const nonLus=()=>Object.values(C).filter(m=>(m.pid===uid&&m.sens==="postule")||(m.cid===uid&&m.sens==="propose")).filter(m=>!(store.get("pr-lu-"+uid)||"").includes(m.id)).length;
+function marquerLus(){const ids=Object.keys(C).join(",");store.set("pr-lu-"+uid,ids)}
+function emploiTabs(){
+  const n=nonLus();
+  return[["offres","Offres d'emploi"],["candidats","Candidats"],["annonce","Mon annonce"],["messages","Messages"+(n?`<span class="count">${n}</span>`:"")],...(myP?[["mesoffres","Mes offres"]]:[])];
+}
+const flexiNote=`<p class="hint" style="margin:0">Flexi-jobs : étendus à presque tous les secteurs depuis le 1er juillet 2026. Vérifie les conditions avec ton secrétariat social.</p>`;
+const emploiIntro=t=>`<div><h1>${t}</h1><p class="lede">Offres d'emploi en officine et candidats en Wallonie : CDI, CDD, flexi-jobs, jobs étudiants. Les offres et annonces sont visibles par tous, même sans compte, sur <a href="emploi/" target="_blank" rel="noopener">pharma-remplacant.github.io/emploi</a>.</p></div>`;
+function filtresHTML(id,f,avecContrat=true){
+  return `<div class="panel"><div class="grid">
+    <label>Poste<select id="${id}-poste"><option value="">Tous</option>${Object.entries(POSTES).map(([k,v])=>`<option value="${k}" ${f.poste===k?"selected":""}>${v}</option>`).join("")}</select></label>
+    ${avecContrat?`<label>Contrat<select id="${id}-contrat"><option value="">Tous</option>${CONTRATS.map(c=>`<option ${f.contrat===c?"selected":""}>${c}</option>`).join("")}</select></label>`:""}
+    <label>Près de<input id="${id}-loc" list="localites" value="${esc(f.loc)}" placeholder="Localité" autocomplete="off"></label>
+    <label>Distance<select id="${id}-km">${[10,25,50,100].map(k=>`<option value="${k}" ${+f.km===k?"selected":""}>${k} km</option>`).join("")}<option value="999" ${+f.km===999?"selected":""}>Toute la Wallonie</option></select></label>
+  </div></div>`;
+}
+function lireFiltres(id,f){
+  f.poste=document.getElementById(id+"-poste").value;
+  const c=document.getElementById(id+"-contrat");if(c)f.contrat=c.value;
+  f.loc=document.getElementById(id+"-loc").value.trim();f.km=+document.getElementById(id+"-km").value;
+}
+const filtreLoc=(f,commune)=>!f.loc||!GEO.has(f.loc)||+f.km===999||km(f.loc,commune)<=+f.km;
+const fOff={poste:"",contrat:"",loc:"",km:999}, fCand={poste:"",contrat:"",loc:"",km:999};
+
+function vOffres(){
+  emploiWatch();
+  const draw=()=>{
+    const list=(OFF||[]).filter(o=>recent(o)&&(!fOff.poste||o.poste===fOff.poste)&&(!fOff.contrat||o.contrat===fOff.contrat)&&filtreLoc(fOff,o.commune)).sort((a,b)=>a.cree<b.cree?1:-1);
+    const deja=new Set(Object.values(C).filter(m=>m.cid===uid&&m.sens==="postule").map(m=>m.offreId));
+    const res=document.getElementById("off-res");
+    const html=OFF===null?`<p class="muted">Chargement…</p>`:list.length?`<div class="cards">${list.map(o=>`<div class="card">
+      <div class="req-top"><div style="min-width:0"><h3>${esc(o.titre)}</h3><p class="muted" style="margin:0;font-size:13px">${esc(o.officine)} · ${esc(locLabel(o.commune))}${fOff.loc&&GEO.has(fOff.loc)?` · ${km(fOff.loc,o.commune)} km`:""}</p></div><span class="status st-acceptee">${esc(o.contrat)}</span></div>
+      <div class="chips"><span class="chip">${esc(POSTES[o.poste]||"")}</span>${o.horaire?`<span class="chip">${esc(o.horaire)}</span>`:""}${o.debut?`<span class="chip">Dès le ${esc(nice(o.debut))}</span>`:""}</div>
+      <p style="margin:0;font-size:14px;white-space:pre-line;overflow-wrap:anywhere">${esc(o.description)}</p>
+      <p class="hint" style="margin:0">Publiée le ${nice((o.cree||TODAY_ISO).slice(0,10))}</p>
+      ${o.auteur===uid?`<span class="chip ok">Ton offre</span>`:deja.has(o.id)?`<button class="btn" disabled>Candidature envoyée</button>`:`<button class="btn primary" data-postuler="${esc(o.id)}">Postuler</button>`}
+      ${isAdmin&&o.auteur!==uid?`<button class="btn small danger" data-retirer-offre="${esc(o.id)}">Retirer (modération)</button>`:""}
+    </div>`).join("")}</div>`:`<div class="empty">Aucune offre pour ces critères. ${myP?"Publie la première dans « Mes offres ».":"Reviens bientôt, ou publie ton annonce dans « Mon annonce »."}</div>`;
+    if(res){res.innerHTML=html;bindOffres(res);return}
+    app.innerHTML=`<div class="stack">${banner()}${emploiIntro("Offres d'emploi")}${filtresHTML("fo",fOff)}${flexiNote}<div id="off-res">${html}</div></div>`;
+    bindBanner();bindOffres(app);
+    ["fo-poste","fo-contrat","fo-loc","fo-km"].forEach(id=>document.getElementById(id).onchange=()=>{lireFiltres("fo",fOff);draw()});
+  };
+  draw();return{refresh:draw,keep:true};
+}
+function bindOffres(root){
+  root.querySelectorAll("[data-postuler]").forEach(b=>b.onclick=()=>messageModal("postule",(OFF||[]).find(o=>o.id===b.dataset.postuler)));
+  root.querySelectorAll("[data-retirer-offre]").forEach(b=>b.onclick=()=>confirmSheet("Retirer cette offre ?","Elle sera supprimée définitivement.","Retirer",()=>write(()=>deleteDoc(doc(db,"offres",b.dataset.retirerOffre)),"Offre retirée")));
+}
+
+function vCandidats(){
+  emploiWatch();
+  const draw=()=>{
+    const list=(CAND||[]).filter(c=>recent(c)&&(!fCand.poste||c.poste===fCand.poste)&&(!fCand.contrat||(c.contrats||[]).includes(fCand.contrat))&&filtreLoc(fCand,c.commune)).sort((a,b)=>a.maj<b.maj?1:-1);
+    const deja=new Set(Object.values(C).filter(m=>m.pid===uid&&m.sens==="propose").map(m=>m.cid));
+    const res=document.getElementById("cand-res");
+    const html=CAND===null?`<p class="muted">Chargement…</p>`:list.length?`<div class="cards">${list.map(c=>`<div class="card">
+      <div class="who"><div class="av">${esc(initials(c.pseudo))}</div><div style="min-width:0"><h3>${esc(c.pseudo)}</h3><p>${esc(POSTES[c.poste]||"")} · ${esc(locLabel(c.commune))}</p></div></div>
+      <div class="chips">${(c.contrats||[]).map(x=>`<span class="chip ok">${esc(x)}</span>`).join("")}${c.disponible?`<span class="chip">Disponible dès le ${esc(nice(c.disponible))}</span>`:""}<span class="chip">Mobile ${Number(c.rayon)||0} km</span></div>
+      <p style="margin:0;font-size:14px;white-space:pre-line;overflow-wrap:anywhere">${esc(c.presentation)}</p>
+      ${c.id===uid?`<span class="chip ok">Ton annonce</span>`:myP?(deja.has(c.id)?`<button class="btn" disabled>Proposition envoyée</button>`:`<button class="btn primary" data-contacter="${esc(c.id)}">Contacter</button>`):`<p class="hint" style="margin:0">Les officines inscrites peuvent contacter ce candidat.</p>`}
+      ${isAdmin&&c.id!==uid?`<button class="btn small danger" data-retirer-annonce="${esc(c.id)}">Retirer (modération)</button>`:""}
+    </div>`).join("")}</div>`:`<div class="empty">Aucun candidat pour ces critères pour l'instant.</div>`;
+    if(res){res.innerHTML=html;bindCand(res);return}
+    app.innerHTML=`<div class="stack">${banner()}${emploiIntro("Candidats")}${filtresHTML("fc",fCand)}<div id="cand-res">${html}</div></div>`;
+    bindBanner();bindCand(app);
+    ["fc-poste","fc-contrat","fc-loc","fc-km"].forEach(id=>document.getElementById(id).onchange=()=>{lireFiltres("fc",fCand);draw()});
+  };
+  draw();return{refresh:draw,keep:true};
+}
+function bindCand(root){
+  root.querySelectorAll("[data-contacter]").forEach(b=>b.onclick=()=>messageModal("propose",(CAND||[]).find(c=>c.id===b.dataset.contacter)));
+  root.querySelectorAll("[data-retirer-annonce]").forEach(b=>b.onclick=()=>confirmSheet("Retirer cette annonce ?","Elle sera supprimée définitivement.","Retirer",()=>write(()=>deleteDoc(doc(db,"candidats",b.dataset.retirerAnnonce)),"Annonce retirée")));
+}
+
+// Postuler à une offre (candidat → officine) ou contacter un candidat (officine → candidat)
+function messageModal(sens,cible){
+  if(!user.emailVerified){toast("Confirme d'abord ton adresse e-mail (lien reçu par e-mail), puis touche « J'ai confirmé ».");return}
+  const postule=sens==="postule";
+  const nomDefaut=postule?(myR?.nom||""):(myP?.nom||"");
+  layer.innerHTML=`<div class="overlay" id="ov"><form class="sheet" id="mf" role="dialog" aria-modal="true" aria-labelledby="mf-t">
+    <div><h2 id="mf-t">${postule?`Postuler : ${esc(cible.titre)}`:`Contacter ${esc(cible.pseudo)}`}</h2><p class="muted" style="margin:4px 0 0;font-size:14px">${postule?`${esc(cible.officine)} · ${esc(cible.commune)}. Tes coordonnées ne sont envoyées qu'à cette officine.`:"Tes coordonnées ne sont envoyées qu'à ce candidat."}</p></div>
+    <div class="grid">
+      <label>${postule?"Nom et prénom":"Officine"}<input id="m-nom" value="${esc(nomDefaut)}" required maxlength="100"></label>
+      <label>Téléphone<input id="m-tel" type="tel" required maxlength="40"></label>
+      <label>E-mail<input id="m-email" type="email" required maxlength="120" value="${esc(user.email)}"></label>
+    </div>
+    <label>Message<textarea id="m-msg" required maxlength="1000" placeholder="${postule?"Ton expérience, tes disponibilités, pourquoi ce poste t'intéresse…":"Le poste proposé, les horaires, le contrat…"}"></textarea></label>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="mf-x">Annuler</button><button class="btn primary" type="submit">Envoyer</button></div>
+  </form></div>`;
+  const close=()=>layer.innerHTML="";
+  document.getElementById("mf-x").onclick=close;document.getElementById("ov").onclick=e=>{if(e.target.id==="ov")close()};
+  document.getElementById("mf").onsubmit=e=>{e.preventDefault();
+    const t=nowIso();
+    const data={sens,offreId:postule?cible.id:"",otitre:postule?cible.titre:"",pid:postule?cible.auteur:uid,cid:postule?uid:cible.id,
+      nom:document.getElementById("m-nom").value.trim(),tel:document.getElementById("m-tel").value.trim(),email:document.getElementById("m-email").value.trim(),
+      message:document.getElementById("m-msg").value.trim(),cree:t};
+    write(()=>addDoc(collection(db,"candidatures"),data),postule?"Candidature envoyée à l'officine":"Proposition envoyée au candidat").then(ok=>{if(ok)close()});
+  };
+}
+
+function vAnnonce(){
+  emploiWatch();
+  const draw=()=>{
+    if(monAnnonce===undefined){app.innerHTML=`<div class="stack"><h1>Mon annonce</h1><p class="lede">Chargement…</p></div>`;return}
+    const a=monAnnonce||{pseudo:"",poste:myR?.statut||"assistant",contrats:[],commune:myR?.commune||"",rayon:25,presentation:"",disponible:"",statut:"visible"};
+    app.innerHTML=`<div class="stack">${banner()}<div><h1>${monAnnonce?"Mon annonce":"Je cherche un emploi"}</h1><p class="lede">Ton annonce est <b>publique</b> : visible par tous, même sans compte. N'y mets ni ton nom complet, ni tes coordonnées. Les officines inscrites te contactent via l'appli, et leurs messages arrivent dans « Messages ».</p></div>
+    ${monAnnonce&&!recent(monAnnonce)?`<div class="notice"><b>Ton annonce n'est plus affichée</b> : plus de ${EXPIRE_JOURS} jours sans mise à jour. Touche « Enregistrer » pour la republier.</div>`:""}
+    <form class="panel stack" id="af2">
+      <div class="grid">
+        <label>Prénom et initiale<input id="e-pseudo" value="${esc(a.pseudo)}" required maxlength="40" placeholder="Ex. : Julie M."></label>
+        <label>Poste recherché<select id="e-poste">${Object.entries(POSTES).map(([k,v])=>`<option value="${k}" ${a.poste===k?"selected":""}>${v}</option>`).join("")}</select></label>
+        <label>Localité<input id="e-commune" list="localites" value="${esc(a.commune)}" required autocomplete="off"></label>
+        <label>Je me déplace jusqu'à (km)<input id="e-rayon" type="number" min="1" max="200" value="${Number(a.rayon)||25}" required></label>
+        <label>Disponible dès le (facultatif)<input id="e-dispo" type="date" value="${esc(a.disponible)}"></label>
+      </div>
+      <fieldset><legend>Contrats recherchés</legend><div class="row">${CONTRATS.map((c,i)=>`<label class="check" style="align-items:center"><input type="checkbox" id="ec-${i}" ${(a.contrats||[]).includes(c)?"checked":""}><span>${c}</span></label>`).join("")}</div></fieldset>
+      <label>Présentation<textarea id="e-pres" required maxlength="1000" placeholder="Ton expérience, tes logiciels, tes horaires souhaités…">${esc(a.presentation)}</textarea></label>
+      <label class="check"><input type="checkbox" id="e-vis" ${a.statut!=="masquee"?"checked":""}><span>Afficher mon annonce (décoche pour la mettre en pause)</span></label>
+      ${flexiNote}
+      <div class="row" style="justify-content:space-between">${monAnnonce?`<button type="button" class="btn danger small" id="e-del">Supprimer mon annonce</button>`:"<span></span>"}<button class="btn primary" type="submit">${monAnnonce?"Enregistrer":"Publier mon annonce"}</button></div>
+    </form></div>`;
+    bindBanner();
+    document.getElementById("e-del")?.addEventListener("click",()=>confirmSheet("Supprimer ton annonce ?","Elle disparaîtra de la liste des candidats.","Supprimer",()=>write(()=>deleteDoc(doc(db,"candidats",uid)),"Annonce supprimée")));
+    document.getElementById("af2").onsubmit=e=>{e.preventDefault();
+      if(!user.emailVerified){toast("Confirme d'abord ton adresse e-mail, puis touche « J'ai confirmé ».");return}
+      const commune=document.getElementById("e-commune").value.trim();
+      if(!GEO.has(commune)){toast("Choisis une localité wallonne dans la liste.");return}
+      const contrats=CONTRATS.filter((c,i)=>document.getElementById("ec-"+i).checked);
+      if(!contrats.length){toast("Coche au moins un type de contrat.");return}
+      const t=nowIso();
+      const data={pseudo:document.getElementById("e-pseudo").value.trim(),poste:document.getElementById("e-poste").value,commune,rayon:+document.getElementById("e-rayon").value||25,
+        disponible:document.getElementById("e-dispo").value||"",contrats,presentation:document.getElementById("e-pres").value.trim(),
+        statut:document.getElementById("e-vis").checked?"visible":"masquee",cree:monAnnonce?.cree||t,maj:t};
+      write(()=>setDoc(doc(db,"candidats",uid),data),monAnnonce?"Annonce enregistrée":"Annonce publiée");
+    };
+  };
+  draw();return{refresh:()=>{if(!document.activeElement?.closest?.("#af2"))draw()},keep:true};
+}
+
+function vMesOffres(){
+  emploiWatch();
+  const draw=()=>{
+    const recues=Object.values(C).filter(m=>m.pid===uid&&m.sens==="postule");
+    app.innerHTML=`<div class="stack">${banner()}<div><h1>Mes offres d'emploi</h1><p class="lede">Publie une offre pour ${esc(myP.nom)}. Elle est visible par tous pendant ${EXPIRE_JOURS} jours (republie-la pour la prolonger). Les candidatures arrivent dans « Messages ».</p></div>
+    <form class="panel stack" id="of2">
+      <h2>Nouvelle offre</h2>
+      <div class="grid">
+        <label>Intitulé<input id="o2-titre" required maxlength="100" placeholder="Ex. : Assistant·e pharmaceutico-technique à mi-temps"></label>
+        <label>Poste<select id="o2-poste">${Object.entries(POSTES).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label>
+        <label>Contrat<select id="o2-contrat">${CONTRATS.map(c=>`<option>${c}</option>`).join("")}</select></label>
+        <label>Horaire<input id="o2-horaire" maxlength="60" placeholder="Ex. : 4/5, samedis, soirées"></label>
+        <label>Localité<input id="o2-commune" list="localites" value="${esc(myP.commune)}" required autocomplete="off"></label>
+        <label>Début (facultatif)<input id="o2-debut" type="date"></label>
+      </div>
+      <label>Description<textarea id="o2-desc" required maxlength="1500" placeholder="Missions, profil recherché, logiciel, avantages…"></textarea></label>
+      ${flexiNote}
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">Publier l'offre</button></div>
+    </form>
+    <h2>Offres publiées</h2>
+    ${mesOffres.length?`<div class="cards">${mesOffres.slice().sort((a,b)=>a.cree<b.cree?1:-1).map(o=>{const n=recues.filter(m=>m.offreId===o.id).length,vis=o.statut==="ouverte"&&recent(o);return `<div class="card">
+      <div class="req-top"><div style="min-width:0"><h3>${esc(o.titre)}</h3><p class="muted" style="margin:0;font-size:13px">${esc(o.contrat)} · ${esc(o.commune)} · publiée le ${nice((o.cree||TODAY_ISO).slice(0,10))}</p></div><span class="status ${vis?"st-acceptee":"st-annulee"}">${o.statut==="pourvue"?"Pourvue":vis?"En ligne":"Expirée"}</span></div>
+      <p style="margin:0">${n} candidature${n>1?"s":""} reçue${n>1?"s":""}</p>
+      <div class="row">${o.statut==="ouverte"?`<button class="btn small" data-republier="${o.id}">Republier (60 jours)</button><button class="btn small" data-pourvue="${o.id}">Marquer pourvue</button>`:`<button class="btn small" data-rouvrir="${o.id}">Rouvrir</button>`}<button class="btn small danger" data-suppr-offre="${o.id}">Supprimer</button></div>
+    </div>`}).join("")}</div>`:`<div class="empty">Aucune offre publiée.</div>`}</div>`;
+    bindBanner();
+    document.getElementById("of2").onsubmit=e=>{e.preventDefault();
+      if(!user.emailVerified){toast("Confirme d'abord ton adresse e-mail, puis touche « J'ai confirmé ».");return}
+      const commune=document.getElementById("o2-commune").value.trim();
+      if(!GEO.has(commune)){toast("Choisis une localité wallonne dans la liste.");return}
+      const t=nowIso();
+      const data={titre:document.getElementById("o2-titre").value.trim(),poste:document.getElementById("o2-poste").value,contrat:document.getElementById("o2-contrat").value,
+        horaire:document.getElementById("o2-horaire").value.trim(),commune,debut:document.getElementById("o2-debut").value||"",description:document.getElementById("o2-desc").value.trim(),
+        officine:myP.nom,auteur:uid,statut:"ouverte",cree:t,maj:t};
+      write(()=>addDoc(collection(db,"offres"),data),"Offre publiée");
+    };
+    const maj=(id,champs,msg)=>write(()=>updateDoc(doc(db,"offres",id),{...champs,maj:nowIso()}),msg);
+    app.querySelectorAll("[data-republier]").forEach(b=>b.onclick=()=>maj(b.dataset.republier,{},"Offre republiée pour 60 jours"));
+    app.querySelectorAll("[data-pourvue]").forEach(b=>b.onclick=()=>maj(b.dataset.pourvue,{statut:"pourvue"},"Offre marquée pourvue : elle n'est plus affichée"));
+    app.querySelectorAll("[data-rouvrir]").forEach(b=>b.onclick=()=>maj(b.dataset.rouvrir,{statut:"ouverte"},"Offre de nouveau en ligne"));
+    app.querySelectorAll("[data-suppr-offre]").forEach(b=>b.onclick=()=>confirmSheet("Supprimer cette offre ?","Elle disparaît définitivement.","Supprimer",()=>write(()=>deleteDoc(doc(db,"offres",b.dataset.supprOffre)),"Offre supprimée")));
+  };
+  draw();return{refresh:()=>{if(!document.activeElement?.closest?.("#of2"))draw()},keep:true};
+}
+
+function vMessages(){
+  const draw=()=>{
+    const list=Object.values(C).sort((a,b)=>a.cree<b.cree?1:-1);
+    app.innerHTML=`<div class="stack">${banner()}${notifInvite()}<div><h1>Messages emploi</h1><p class="lede">Candidatures envoyées ou reçues, et propositions des officines. Les coordonnées ne sont visibles que par l'expéditeur et le destinataire.</p></div>
+    ${list.length?`<div class="cards">${list.map(m=>{const recu=(m.pid===uid&&m.sens==="postule")||(m.cid===uid&&m.sens==="propose");
+      const titre=m.sens==="postule"?(recu?`Candidature de ${esc(m.nom)}`:`Ta candidature`):(recu?`Proposition de ${esc(m.nom)}`:`Ta proposition`);
+      return `<div class="card">
+      <div class="req-top"><div style="min-width:0"><h3>${titre}</h3><p class="muted" style="margin:0;font-size:13px">${m.sens==="postule"?`Offre : ${esc(m.otitre)}`:"Contact direct"} · ${nice((m.cree||TODAY_ISO).slice(0,10))}</p></div><span class="status ${recu?"st-attente":"st-acceptee"}">${recu?"Reçu":"Envoyé"}</span></div>
+      <q>${esc(m.message)}</q>
+      ${recu?`<div class="contact"><b>Coordonnées</b><div class="row"><span><span class="muted">Tél.</span> <b class="mono">${esc(m.tel)}</b></span><button type="button" class="btn small" data-copy="${esc(m.tel)}">Copier</button></div><div class="row"><span><span class="muted">E-mail</span> <b class="mono">${esc(m.email)}</b></span><button type="button" class="btn small" data-copy="${esc(m.email)}">Copier</button></div></div>`:""}
+      <div class="row"><button class="btn small danger" data-suppr-msg="${esc(m.id)}">Supprimer</button></div>
+    </div>`}).join("")}</div>`:`<div class="empty">Aucun message pour l'instant.</div>`}</div>`;
+    bindBanner();bindNotif(app);bindCopy(app);marquerLus();renderTabs();
+    app.querySelectorAll("[data-suppr-msg]").forEach(b=>b.onclick=()=>confirmSheet("Supprimer ce message ?","Il disparaît pour toi et pour l'autre personne.","Supprimer",()=>write(()=>deleteDoc(doc(db,"candidatures",b.dataset.supprMsg)),"Message supprimé")));
+  };
+  draw();return{refresh:draw};
 }
 
 /* ---------- ADMINISTRATION ---------- */

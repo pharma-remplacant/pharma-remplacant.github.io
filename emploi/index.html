@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://*.googleapis.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Emploi en pharmacie · Pharma Remplaçant</title>
+<meta name="description" content="Offres d'emploi en officine en Wallonie : CDI, CDD, flexi-jobs, jobs étudiants pour pharmaciens et assistants pharmaceutico-techniques. Candidats disponibles.">
+<meta property="og:title" content="Emploi en pharmacie en Wallonie">
+<meta property="og:description" content="Offres d'emploi et candidats en officine : CDI, CDD, flexi-jobs, jobs étudiants.">
+<meta property="og:image" content="https://pharma-remplacant.github.io/icon-512.png">
+<meta name="theme-color" content="#0b7a5c">
+<link rel="icon" href="../icon-192.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="canonical" href="https://pharma-remplacant.github.io/emploi/">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+/* Layout : liste publique, en-tête avec bascule Offres / Candidats, filtres, cartes en grille */
+:root{
+  --bg:#f2f6f4; --surface:#ffffff; --ink:#12302b; --muted:#5a6e68; --line:#d6e0dc; --accent:#0b7a5c; --accent-ink:#ffffff; --accent-soft:#dcefe7;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif; --f-body:"Figtree","Segoe UI",system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
+}
+@media (prefers-color-scheme: dark){:root{--bg:#0e1614;--surface:#16211e;--ink:#e2eeea;--muted:#93a8a1;--line:#283934;--accent:#3fc699;--accent-ink:#06261c;--accent-soft:#163a2f;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--f-body)}
+.wrap{max-width:1000px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{padding-block:18px 8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font:700 20px var(--f-display);color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:10px}
+.brand img{border-radius:8px}
+h1,h2,h3{font-family:var(--f-display);letter-spacing:-.015em;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,44px);line-height:1.1;margin-top:12px}
+h2{font-size:20px;margin:8px 0 12px}
+h3{font-size:17px}
+.lede{color:var(--muted);max-width:62ch;margin:10px 0 18px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;color:var(--muted);font:600 14px var(--f-body);padding:8px 16px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.filters{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin:16px 0}
+label{font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:5px}
+input,select{font:15px var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 10px;width:100%;min-width:0}
+.cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card p{margin:0}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.pill{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.desc{white-space:pre-line;overflow-wrap:anywhere;font-size:15px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.btn{display:inline-flex;justify-content:center;text-decoration:none;font:700 15px var(--f-body);padding:10px 16px;border-radius:10px;border:1px solid var(--line);color:var(--ink);background:var(--surface);align-self:flex-start}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.cta{display:flex;gap:10px;flex-wrap:wrap}
+.empty{text-align:center;color:var(--muted);padding:28px 16px;border:1px dashed var(--line);border-radius:12px}
+.note{font-size:13px;color:var(--muted)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+footer{padding-block:32px 48px;color:var(--muted);font-size:14px}
+footer a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="../decouvrir/"><img src="../icon-192.png" alt="" width="30" height="30">Pharma Remplaçant</a>
+    <div class="cta"><a class="btn" href="../#emploi">Se connecter</a><a class="btn primary" href="../#inscription">Créer un compte gratuit</a></div>
+  </header>
+  <h1>Emploi en pharmacie en Wallonie</h1>
+  <p class="lede">Offres des officines et candidats disponibles : CDI, CDD, flexi-jobs, jobs étudiants. Consultation libre. Pour postuler, publier une offre ou une annonce, crée un compte gratuit.</p>
+  <div class="seg" role="group" aria-label="Afficher"><button data-vue="offres" aria-pressed="true">Offres d'emploi</button><button data-vue="candidats" aria-pressed="false">Candidats</button></div>
+  <div class="filters">
+    <label>Poste<select id="f-poste"></select></label>
+    <label>Contrat<select id="f-contrat"></select></label>
+    <label>Près de<input id="f-loc" list="localites" placeholder="Localité" autocomplete="off"></label>
+    <label>Distance<select id="f-km"><option value="10">10 km</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="999" selected>Toute la Wallonie</option></select></label>
+  </div>
+  <p class="note">Flexi-jobs : étendus à presque tous les secteurs depuis le 1er juillet 2026. Vérifiez les conditions avec votre secrétariat social.</p>
+  <section id="liste" aria-live="polite"><p class="muted">Chargement des offres…</p></section>
+  <footer>Les offres et annonces sont publiées par les utilisateurs et retirées après 60 jours sans mise à jour.<br><a href="../legal/#mentions">Mentions légales</a> · <a href="../legal/#conditions">Conditions d'utilisation</a> · <a href="../legal/#confidentialite">Confidentialité</a></footer>
+</div>
+<datalist id="localites"></datalist>
+<script type="module" src="emploi.js"></script>
+</body>
+</html>
