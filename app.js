@@ -1,6 +1,6 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, addDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from "./vendor/firebase-app.js";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, deleteUser } from "./vendor/firebase-auth.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, addDoc, writeBatch } from "./vendor/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { LOC } from "./localites.js";
 
@@ -80,7 +80,7 @@ const myDispo=()=>localDispo||(myR?.dispo||[]);
 function noteOf(id){const l=A.filter(a=>a.pour===id);return{n:l.length,avg:l.length?l.reduce((s,a)=>s+a.note,0)/l.length:0,list:l}}
 function noteChip(id){const{n,avg}=noteOf(id);return n?`<span class="chip"><span class="stars">★</span> ${fmtNote(avg)} (${n} avis)</span>`:`<span class="chip">Pas encore d'avis</span>`}
 function avisList(id){const{list}=noteOf(id);if(!list.length)return"";
-  return `<details class="avis"><summary>Lire les ${list.length} avis</summary><ul>${list.slice().sort((a,b)=>a.cree<b.cree?1:-1).map(a=>`<li><span class="stars">${"★".repeat(a.note)}</span><span class="muted">${"★".repeat(5-a.note)}</span>${a.texte?`<br>${esc(a.texte)}`:""}</li>`).join("")}</ul></details>`}
+  return `<details class="avis"><summary>Lire les ${list.length} avis vérifiés</summary><p class="hint" style="margin:6px 0 0">Avis laissés uniquement après une mission confirmée sur Pharma Remplaçant.</p><ul>${list.slice().sort((a,b)=>a.cree<b.cree?1:-1).map(a=>`<li><span class="stars">${"★".repeat(a.note)}</span><span class="muted">${"★".repeat(5-a.note)}</span>${a.texte?`<br>${esc(a.texte)}`:""}</li>`).join("")}</ul></details>`}
 
 /* ---------- écritures ---------- */
 async function write(fn,okMsg){
@@ -110,6 +110,7 @@ function vAuth(){
       <button class="btn primary" type="submit">${reset?"Envoyer le lien":reg?"Créer mon compte":"Me connecter"}</button>
       <div class="auth-links">${reset?`<button type="button" class="linkbtn" id="m-back">Retour à la connexion</button>`:`<button type="button" class="linkbtn" id="m-reset">Mot de passe oublié ?</button>`}<a class="linkbtn" href="decouvrir/">Découvrir Pharma Remplaçant</a></div>
     </form>
+    <p class="hint" style="text-align:center;margin:0"><a href="legal/#mentions">Mentions légales</a> · <a href="legal/#conditions">Conditions d'utilisation</a> · <a href="legal/#confidentialite">Confidentialité</a></p>
     ${installBanner()}
   </div>`;
   document.getElementById("m-login")?.addEventListener("click",()=>{authMode="login";vAuth()});
@@ -365,7 +366,7 @@ function rateModal(d,mode){
   const sens=mode==="r"?"r":"p";
   const target=sens==="r"?(P[d.pid]?.nom||d.pnom):(rem(d.rid)?.nom||d.rnom||"le remplaçant");
   layer.innerHTML=`<div class="overlay" id="ov"><form class="sheet" id="rf" role="dialog" aria-modal="true" aria-labelledby="rf-t">
-    <div><h2 id="rf-t">Noter ${esc(target)}</h2><p class="muted" style="margin:4px 0 0;font-size:14px">Mission du ${nice(d.date)}. Ton avis sera visible par les autres utilisateurs.</p></div>
+    <div><h2 id="rf-t">Noter ${esc(target)}</h2><p class="muted" style="margin:4px 0 0;font-size:14px">Mission du ${nice(d.date)}. Ton avis sera visible par les autres utilisateurs, avec la mention « avis vérifié ». Reste factuel et respectueux : les avis injurieux sont retirés.</p></div>
     <fieldset><legend>Note</legend><div class="rate">${[5,4,3,2,1].map(n=>`<input type="radio" name="note" id="n${n}" value="${n}" ${n===5?"checked":""}><label for="n${n}" aria-label="${n} sur 5">★</label>`).join("")}</div></fieldset>
     <label>Commentaire (facultatif)<textarea id="rf-t2" maxlength="500" placeholder="${sens==="r"?"Accueil, organisation, consignes claires…":"Ponctualité, autonomie, contact avec les patients…"}"></textarea></label>
     <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="rf-x">Annuler</button><button class="btn primary" type="submit">Publier l'avis</button></div></form></div>`;
@@ -409,7 +410,7 @@ function vProfil(){
     <fieldset><legend>Logiciels maîtrisés</legend>
       <div class="row">${LOGICIELS.map((l,i)=>`<label class="check" style="align-items:center"><input type="checkbox" id="lg-${i}" ${v.logiciels.includes(l)?"checked":""}>${l}</label>`).join("")}</div></fieldset>
     <label>Présentation<textarea id="p-bio" maxlength="600" placeholder="Ton expérience, tes points forts, tes jours habituels…">${esc(v.bio)}</textarea></label>
-    ${isNew?`<label class="check"><input type="checkbox" id="p-ok" required>J'accepte les conditions du pilote et que mon profil et mon agenda soient visibles par les officines inscrites. L'inscription est gratuite ; après le pilote, chaque mission acceptée coûtera ${FRAIS} € TVAC.</label>`:""}
+    ${isNew?`<label class="check"><input type="checkbox" id="p-ok" required><span>J'accepte les <a href="legal/#conditions" target="_blank" rel="noopener">conditions d'utilisation</a> et la <a href="legal/#confidentialite" target="_blank" rel="noopener">politique de confidentialité</a>. Mon profil et mon agenda sont visibles par les officines inscrites. L'inscription est gratuite ; après le pilote, chaque mission acceptée coûtera ${FRAIS} € TVAC.</span></label>`:""}
     <div class="row" style="justify-content:space-between"><span id="p-chip"></span><button class="btn primary" type="submit">${isNew?"Créer mon profil":"Enregistrer"}</button></div>
   </form></div>`;
   bindBanner();
@@ -459,7 +460,7 @@ function vOfficine(){
       <label>N° d'entreprise (BCE)<input id="o-bce" required placeholder="0xxx.xxx.xxx"><span class="hint">Pour recevoir les factures des remplaçants par Peppol.</span></label>
       <label>N° APB / AFMPS (facultatif)<input id="o-apb"></label>
     </div>
-    ${isNew?`<label class="check"><input type="checkbox" id="o-ok" required>J'accepte les conditions du pilote. L'accès est gratuit pour les officines.</label>`:""}
+    ${isNew?`<label class="check"><input type="checkbox" id="o-ok" required><span>J'accepte les <a href="legal/#conditions" target="_blank" rel="noopener">conditions d'utilisation</a> et la <a href="legal/#confidentialite" target="_blank" rel="noopener">politique de confidentialité</a>. L'accès est gratuit pour les officines.</span></label>`:""}
     <div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">${isNew?"Inscrire mon officine":"Enregistrer"}</button></div>
   </form></div>`;
   bindBanner();
@@ -521,6 +522,7 @@ function askModal(rid){
     <div class="grid" style="grid-template-columns:1fr 1fr"><label>Début<input id="a-deb" type="time" value="${search.debut}" required></label><label>Fin<input id="a-fin" type="time" value="${search.fin}" required></label></div>
     <label>Message (logiciel, consignes, accès…)<textarea id="a-msg" maxlength="600" placeholder="Ex. : remplacement de notre assistante, logiciel Officinall, arrivée par l'arrière-boutique."></textarea></label>
     <div class="total"><span class="muted">Estimation <span id="a-h"></span></span><b id="a-cost"></b></div>
+    ${r.statut==="assistant"?`<div class="notice" style="font-size:13px"><b>Rappel :</b> un·e assistant·e pharmaceutico-technique travaille sous la responsabilité d'un pharmacien. Un pharmacien doit être présent dans l'officine pendant ce remplacement.</div>`:""}
     <p class="muted" style="margin:0;font-size:12px">Hors TVA et frais de déplacement éventuels. Le remplaçant facture directement l'officine.</p>
     <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="a-x">Annuler</button><button class="btn primary" type="submit">Envoyer la demande</button></div>
   </form></div>`;
@@ -556,13 +558,14 @@ function vCompte(){
   app.innerHTML=`<div class="stack">${banner()}<div><h1>Mon compte</h1><p class="lede">Connecté avec ${esc(user.email)}.</p></div>
   ${myR?abonnementPanel():""}
   <div class="panel stack"><h2>Session</h2><div class="row"><button class="btn" id="c-out">Me déconnecter</button></div></div>
-  <div class="panel stack"><h2>Supprimer mon compte</h2><p class="muted" style="margin:0;font-size:14px">Supprime ton profil, ton officine, tes coordonnées et ton accès. L'historique des missions passées reste visible par l'autre partie.</p><div class="row"><button class="btn danger" id="c-del">Supprimer mon compte</button></div></div></div>`;
+  <div class="panel stack"><h2>Supprimer mon compte</h2><p class="muted" style="margin:0;font-size:14px">Supprime ton profil, ton officine, tes coordonnées, tes factures préparées et ton accès. Télécharge d'abord tes factures : tu dois les conserver pour ta comptabilité. L'historique des missions passées reste visible par l'autre partie.</p><div class="row"><button class="btn danger" id="c-del">Supprimer mon compte</button></div></div></div>`;
   bindBanner();
   if(myR){bindAbonnement(app,()=>vCompte());if(abo===null){abo={};getDoc(doc(db,"remplacants",uid,"prive","abonnement")).then(s=>{abo=s.data()||{};if(tab==="compte")vCompte()}).catch(()=>{})}}
   document.getElementById("c-out").onclick=()=>signOut(auth);
   document.getElementById("c-del").onclick=()=>confirmSheet("Supprimer ton compte ?","Cette action est définitive.","Supprimer définitivement",async()=>{
     try{
-      for(const p of [["remplacants",uid,"prive","contact"],["remplacants",uid,"prive","verif"],["remplacants",uid],["pharmacies",uid,"prive","contact"],["pharmacies",uid]])await deleteDoc(doc(db,...p)).catch(()=>{});
+      for(const c of [["remplacants",uid,"prive"],["pharmacies",uid,"prive"]]){const l=await getDocs(collection(db,...c)).catch(()=>null);for(const d of l?.docs||[])await deleteDoc(d.ref).catch(()=>{})}
+      for(const p of [["remplacants",uid],["pharmacies",uid]])await deleteDoc(doc(db,...p)).catch(()=>{});
       await deleteUser(user);toast("Compte supprimé");
     }catch(e){toast(e?.code==="auth/requires-recent-login"?"Par sécurité, déconnecte-toi, reconnecte-toi puis recommence.":"Suppression impossible pour l'instant.")}
   });
@@ -634,7 +637,7 @@ function vFacturation(){
   const faites=new Map(factures.map(f=>[f.demandeId,f]));
   const aFacturer=D.filter(d=>d.rid===uid&&d.statut==="acceptee"&&d.date<=TODAY_ISO).sort((a,b)=>a.date<b.date?1:-1);
   const reg=REGIMES[factu.regime]||REGIMES.S;
-  app.innerHTML=`<div class="stack">${banner()}<div><h1>Facturation</h1><p class="lede">Après chaque mission, prépare ta facture pour l'officine en un geste. Le fichier est au format <b>Peppol</b> (UBL), obligatoire entre entreprises en Belgique : importe-le dans ton outil Peppol ou transmets-le à ton comptable.</p></div>
+  app.innerHTML=`<div class="stack">${banner()}<div><h1>Facturation</h1><p class="lede">Après chaque mission, prépare ta facture pour l'officine en un geste. Le fichier est au format <b>Peppol</b> (UBL), obligatoire entre entreprises en Belgique depuis 2026 : importe-le dans ton outil Peppol ou transmets-le à ton comptable.</p><p class="hint" style="margin:6px 0 0">Si tu es exonéré (art. 44), Peppol n'est pas obligatoire pour toi. En franchise des petites entreprises, vérifie ta situation avec ton comptable. L'appli t'aide à préparer la facture : tu restes responsable de son contenu et de son envoi.</p></div>
   ${factu.nouveau?`<div class="notice"><b>Complète d'abord tes infos de facturation</b> : adresse, IBAN et régime TVA.</div>`:""}
   <details class="panel" ${factu.nouveau?"open":""}><summary style="cursor:pointer"><b>Mes infos de facturation</b> <span class="muted" style="font-size:13px">${esc(factu.nom)} · ${esc(reg.label)}</span></summary>
   <form class="stack" id="ff" style="margin-top:14px">
@@ -837,8 +840,13 @@ function vVue(){
   <div class="panel"><div class="stat"><div><b>${nV}/${nR}</b><span>remplaçants visibles</span></div><div><b>${nP}</b><span>officines inscrites</span></div><div><b>${att.length}</b><span>demandes en attente</span></div><div><b>${conf.length}</b><span>missions confirmées</span></div><div><b>${A.length?fmtNote(notes):"—"}</b><span>note moyenne (${A.length} avis)</span></div><div><b>${fraisTot} €</b><span>frais missions (${FRAIS} € TVAC/mission)</span></div><div><b>${nMois}+${nAn}</b><span>Premium mensuels + annuels</span></div></div></div>
   <div class="notice ${quota[0]==="ok"?"ok":""} install" style="${quota[0]==="bad"?"background:var(--bad-soft)":""}"><span><b style="${quota[0]==="bad"?"color:var(--bad)":""}">Capacité Firebase : ${quota[1]}.</b> ${quota[2]}<br><span class="hint">Estimation : ${lecturesJour.toLocaleString("fr-BE")} lectures par jour sur environ 50 000 gratuites (${utilisateurs} inscrits, 2 ouvertures par jour chacun). Chiffre réel : Firebase > Firestore > Utilisation.</span></span></div>
   <div class="panel stack"><h2>Frais par remplaçant</h2><p class="muted" style="margin:0;font-size:14px">${FRAIS} € TVAC par mission acceptée, sauf pendant un Premium (4,99 €/mois ou 34,99 €/an). Pendant le pilote, ces montants sont indicatifs.</p>${perR.length?`<div class="tbl"><table><thead><tr><th>Remplaçant</th><th>Missions acceptées</th><th>Montant</th></tr></thead><tbody>${perR.map(([rid,[n,f]])=>`<tr><td>${esc(RA[rid]?.nom||"—")}${premiumA(RA[rid],TODAY_ISO)?` <span class="chip ok">Premium</span>`:""}</td><td class="mono">${n}</td><td class="mono">${f} €</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune mission acceptée pour l'instant.</p>`}</div>
+  <div class="panel stack"><h2>Derniers avis</h2>${A.length?`<div class="tbl"><table><thead><tr><th>Date</th><th>Pour</th><th>Note</th><th>Commentaire</th><th></th></tr></thead><tbody>${A.slice().sort((a,b)=>a.cree<b.cree?1:-1).slice(0,30).map(a=>`<tr><td>${a.cree?nice(a.cree.slice(0,10)):"—"}</td><td>${esc(RA[a.pour]?.nom||P[a.pour]?.nom||"—")}</td><td><span class="stars">${"★".repeat(a.note)}</span></td><td style="overflow-wrap:anywhere">${esc(a.texte||"")}</td><td><button class="btn small danger" data-delavis="${esc(a.id)}">Retirer</button></td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucun avis pour l'instant.</p>`}</div>
+  ${(()=>{const lim=iso(addDays(TODAY,-3*365)),vieux=D.filter(d=>d.date<lim);return vieux.length?`<div class="notice"><b>${vieux.length} demande${vieux.length>1?"s":""} de plus de 3 ans.</b> La politique de confidentialité prévoit de les supprimer. <button class="btn small" id="purge">Supprimer maintenant</button></div>`:""})()}
   <div class="panel stack"><h2>Officines inscrites</h2>${nP?`<div class="tbl"><table><thead><tr><th>Officine</th><th>Localité</th><th>Titulaire</th><th>Inscrite</th></tr></thead><tbody>${Object.values(P).map(p=>`<tr><td>${esc(p.nom)}</td><td>${esc(locLabel(p.commune))}</td><td>${esc(p.titulaire)}</td><td>${p.cree?nice(p.cree.slice(0,10)):"—"}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune officine inscrite pour l'instant.</p>`}</div>
   <div class="panel stack"><h2>Dernières missions confirmées</h2>${conf.length?`<div class="tbl"><table><thead><tr><th>Date</th><th>Officine</th><th>Remplaçant</th><th>Horaire</th></tr></thead><tbody>${conf.sort((a,b)=>a.date<b.date?1:-1).slice(0,20).map(d=>`<tr><td>${nice(d.date)}</td><td>${esc(P[d.pid]?.nom||d.pnom)}</td><td>${esc(RA[d.rid]?.nom||d.rnom||"—")}</td><td class="mono">${d.debut}–${d.fin}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune mission confirmée pour l'instant.</p>`}</div></div>`;
+  document.getElementById("purge")?.addEventListener("click",()=>{const lim=iso(addDays(TODAY,-3*365)),vieux=D.filter(d=>d.date<lim);
+    confirmSheet("Supprimer les anciennes demandes ?",`${vieux.length} demande(s) et leurs avis seront supprimés définitivement.`,"Supprimer",()=>write(async()=>{for(const d of vieux){for(const a of A.filter(a=>a.demandeId===d.id))await deleteDoc(doc(db,"avis",a.id));await deleteDoc(doc(db,"demandes",d.id))}},"Anciennes demandes supprimées"))});
+  app.querySelectorAll("[data-delavis]").forEach(b=>b.onclick=()=>confirmSheet("Retirer cet avis ?","Il disparaîtra définitivement du profil concerné.","Retirer",()=>write(()=>deleteDoc(doc(db,"avis",b.dataset.delavis)),"Avis retiré")));
   };
   draw();return{refresh:draw};
 }

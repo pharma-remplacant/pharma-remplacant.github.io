@@ -69,7 +69,7 @@ label{font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direct
 input,select,textarea{font:15px var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 10px;width:100%;min-width:0}
 textarea{resize:vertical;min-height:70px}
 .check{flex-direction:row;align-items:flex-start;gap:8px;font-weight:500;color:var(--ink)}
-.check input{width:auto;margin-top:3px}
+.check input{flex:none;width:18px;height:18px;margin-top:3px;accent-color:var(--accent)}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
