@@ -38,6 +38,9 @@ const statutLabel=s=>s==="pharmacien"?"Pharmacien·ne":"Assistant·e en pharmaci
 const stLabel={attente:"En attente",acceptee:"Confirmée",refusee:"Refusée",annulee:"Annulée"};
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
+// Lien de parrainage (?ref=…) : retenu jusqu'à la création du profil
+{const r=new URLSearchParams(location.search).get("ref");if(r&&/^[A-Za-z0-9]{10,64}$/.test(r))store.set("pr-parrain",r)}
+
 const app=document.getElementById("app"), tabsEl=document.getElementById("tabs"), layer=document.getElementById("layer"), rolesEl=document.getElementById("roles");
 document.getElementById("localites").innerHTML=LOC.map(l=>`<option value="${esc(l[0])}">${l[1]}</option>`).join("");
 function toast(msg){layer.querySelector(".toast")?.remove();const t=document.createElement("div");t.className="toast";t.setAttribute("role","status");t.textContent=msg;layer.appendChild(t);setTimeout(()=>t.remove(),3400)}
@@ -155,7 +158,7 @@ async function verifierEmail(){
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&user&&!user.emailVerified)user.reload().then(()=>{if(user.emailVerified)return user.getIdToken(true).then(()=>{watchRV();rerender()})}).catch(()=>{})});
 function stopAll(){unsubs.forEach(u=>u());unsubs=[];contacts.clear();rvUnsub=null}
-function resetState(){OFF=CAND=null;mesOffres=[];monAnnonce=undefined;emploiOn=false;C={};document.title="Pharma Remplaçant";factu=factures=abo=null;myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
+function resetState(){filleuls=null;parrainages=null;OFF=CAND=null;mesOffres=[];monAnnonce=undefined;emploiOn=false;C={};document.title="Pharma Remplaçant";factu=factures=abo=null;myR=myP=null;RV={};RA={};P={};Dmap={};D=[];A=[];isAdmin=false;ready=false;localDispo=null}
 
 if(!configured)vSetup();
 else onAuthStateChanged(auth,async u=>{
@@ -249,10 +252,10 @@ function tabsFor(){
   if(role==="r"){
     if(!myR)return[["inscription","Créer mon profil"],["compte","Mon compte"]];
     const pend=D.filter(d=>d.rid===uid&&d.statut==="attente"&&d.date>=TODAY_ISO).length;
-    return[["agenda","Mon agenda"],["demandes","Demandes"+(pend?`<span class="count">${pend}</span>`:"")],["facturation","Facturation"],["profil","Mon profil"],["compte","Mon compte"]];
+    return[["agenda","Mon agenda"],["demandes","Demandes"+(pend?`<span class="count">${pend}</span>`:"")],["facturation","Facturation"],["profil","Mon profil"],["partage","Partager"],["compte","Mon compte"]];
   }
   if(!myP)return[["officine","Inscrire mon officine"],["compte","Mon compte"]];
-  return[["trouver","Trouver un remplaçant"],["mesdemandes","Mes demandes"],["officine","Mon officine"],["compte","Mon compte"]];
+  return[["trouver","Trouver un remplaçant"],["mesdemandes","Mes demandes"],["officine","Mon officine"],["partage","Partager"],["compte","Mon compte"]];
 }
 function renderTabs(){
   const list=tabsFor();lastTabs=list.map(t=>t[0]).join();
@@ -265,7 +268,7 @@ function renderTabs(){
 }
 rolesEl.querySelectorAll("button").forEach(b=>b.onclick=()=>{role=b.dataset.role;store.set("pr-role",role);tab=null;mount()});
 
-const VIEWS={agenda:vAgenda,demandes:vDemandes,profil:vProfil,inscription:vProfil,trouver:vTrouver,mesdemandes:vMesDemandes,officine:vOfficine,validation:vValidation,vue:vVue,compte:vCompte,facturation:vFacturation,offres:vOffres,candidats:vCandidats,annonce:vAnnonce,mesoffres:vMesOffres,messages:vMessages};
+const VIEWS={agenda:vAgenda,demandes:vDemandes,profil:vProfil,inscription:vProfil,trouver:vTrouver,mesdemandes:vMesDemandes,officine:vOfficine,validation:vValidation,vue:vVue,compte:vCompte,facturation:vFacturation,offres:vOffres,candidats:vCandidats,annonce:vAnnonce,mesoffres:vMesOffres,messages:vMessages,partage:vPartage};
 function mount(){
   if(!user||!ready)return;
   if(role==="a"&&!isAdmin)role="r";
@@ -519,7 +522,7 @@ function vProfil(){
       batch.set(doc(db,"remplacants",uid,"prive","contact"),contact);
       batch.set(doc(db,"remplacants",uid,"prive","verif"),verif);
       await batch.commit();
-    },isNew?"Profil créé et visible des pharmacies. Ouvre maintenant tes jours disponibles.":"Profil enregistré").then(ok=>{if(ok&&isNew){tab="agenda";mount()}});
+    },isNew?"Profil créé et visible des pharmacies. Ouvre maintenant tes jours disponibles.":"Profil enregistré").then(ok=>{if(ok&&isNew){lierParrain("r");tab="agenda";mount()}});
   };
   return{refresh:chip,keep:true};
 }
@@ -557,7 +560,7 @@ function vOfficine(){
       if(isNew)batch.set(doc(db,"pharmacies",uid),{...pub,cree:t,consentement:t});else batch.update(doc(db,"pharmacies",uid),pub);
       batch.set(doc(db,"pharmacies",uid,"prive","contact"),contact);
       await batch.commit();
-    },isNew?"Officine inscrite. Cherche ton premier remplaçant.":"Officine enregistrée").then(ok=>{if(ok&&isNew){tab="trouver";mount()}});
+    },isNew?"Officine inscrite. Cherche ton premier remplaçant.":"Officine enregistrée").then(ok=>{if(ok&&isNew){lierParrain("p");tab="trouver";mount()}});
   };
   return{refresh:()=>{},keep:true};
 }
@@ -652,11 +655,51 @@ function vCompte(){
   document.getElementById("c-del").onclick=()=>confirmSheet("Supprimer ton compte ?","Cette action est définitive.","Supprimer définitivement",async()=>{
     try{
       for(const c of [["remplacants",uid,"prive"],["pharmacies",uid,"prive"]]){const l=await getDocs(collection(db,...c)).catch(()=>null);for(const d of l?.docs||[])await deleteDoc(d.ref).catch(()=>{})}
+      await deleteDoc(doc(db,"parrainages",uid)).catch(()=>{});
       for(const p of [["remplacants",uid],["pharmacies",uid]])await deleteDoc(doc(db,...p)).catch(()=>{});
       await deleteUser(user);toast("Compte supprimé");
     }catch(e){toast(e?.code==="auth/requires-recent-login"?"Par sécurité, déconnecte-toi, reconnecte-toi puis recommence.":"Suppression impossible pour l'instant.")}
   });
   return{refresh:()=>{}};
+}
+
+/* ---------- PARTAGE ET PARRAINAGE ---------- */
+// Le filleul enregistre qui l'a invité, une seule fois, juste après la création de son profil.
+function lierParrain(roleF){
+  const p=store.get("pr-parrain");if(!p||p===uid)return;
+  setDoc(doc(db,"parrainages",uid),{parrain:p,role:roleF,cree:nowIso()}).then(()=>store.set("pr-parrain","")).catch(()=>{});
+}
+let filleuls=null;
+function vPartage(){
+  const nom=myP&&role==="p"?myP.nom:(myR?.nom||"").split(/\s+/)[0];
+  const lien=new URL(`decouvrir/?ref=${uid}&de=${encodeURIComponent(nom)}`,location.href).href;
+  const msg=`Je t'invite sur Pharma Remplaçant, l'appli gratuite qui met en relation officines et remplaçants en Wallonie : ${lien}`;
+  const e=encodeURIComponent;
+  const draw=()=>{
+    const l=filleuls||[];
+    app.innerHTML=`<div class="stack">${banner()}<div><h1>Partager l'appli</h1><p class="lede">Invite tes collègues remplaçants et les officines que tu connais. Plus il y a de monde, plus les remplacements se trouvent vite.</p></div>
+    <div class="panel stack"><h2>Ton lien de parrainage</h2>
+      <div class="row"><b class="mono" style="overflow-wrap:anywhere;flex:1 1 220px;font-size:13px">${esc(lien)}</b><button class="btn small" data-copy="${esc(lien)}">Copier le lien</button></div>
+      <div class="row">
+        ${navigator.share?`<button class="btn primary" id="sh-go">Partager…</button>`:""}
+        <a class="btn" href="https://wa.me/?text=${e(msg)}" target="_blank" rel="noopener">WhatsApp</a>
+        <a class="btn" href="sms:?body=${e(msg)}">SMS</a>
+        <a class="btn" href="mailto:?subject=${e("Pharma Remplaçant")}&body=${e(msg)}">E-mail</a>
+        <a class="btn" href="https://www.facebook.com/sharer/sharer.php?u=${e(lien)}" target="_blank" rel="noopener">Facebook</a>
+        <a class="btn" href="https://www.linkedin.com/sharing/share-offsite/?url=${e(lien)}" target="_blank" rel="noopener">LinkedIn</a>
+      </div>
+      <p class="hint" style="margin:0">La personne invitée arrive sur la présentation de l'appli, avec ton nom. Quand elle crée son profil, elle apparaît ci-dessous.</p>
+    </div>
+    <div class="panel stack"><h2>Tes filleuls</h2>
+      ${filleuls===null?`<p class="muted" style="margin:0">Chargement…</p>`:l.length?`<div class="stat"><div><b>${l.length}</b><span>inscrit${l.length>1?"s":""} grâce à toi</span></div><div><b>${l.filter(f=>f.role==="r").length}</b><span>remplaçant${l.filter(f=>f.role==="r").length>1?"s":""}</span></div><div><b>${l.filter(f=>f.role==="p").length}</b><span>officine${l.filter(f=>f.role==="p").length>1?"s":""}</span></div></div>
+      <ul style="margin:0;padding-left:18px">${l.slice().sort((a,b)=>a.cree<b.cree?1:-1).map(f=>`<li>${f.role==="p"?"Une officine":"Un·e remplaçant·e"} inscrit·e le ${niceY(f.cree.slice(0,10))}</li>`).join("")}</ul>`
+      :`<div class="empty">Personne pour l'instant. Envoie ton lien à un·e collègue !</div>`}
+    </div></div>`;
+    bindBanner();bindCopy(app);
+    document.getElementById("sh-go")?.addEventListener("click",()=>navigator.share({title:"Pharma Remplaçant",text:msg.replace(" : "+lien,"."),url:lien}).catch(()=>{}));
+  };
+  if(filleuls===null)getDocs(query(collection(db,"parrainages"),where("parrain","==",uid))).then(q=>{filleuls=q.docs.map(d=>d.data());if(tab==="partage")draw()}).catch(()=>{filleuls=[];if(tab==="partage")draw()});
+  draw();return{refresh:()=>{}};
 }
 
 /* ---------- ABONNEMENT : à la mission ou Premium ---------- */
@@ -1132,7 +1175,9 @@ function vValidation(){
   };
   draw();return{refresh:draw};
 }
+let parrainages=null;
 function vVue(){
+  if(parrainages===null){parrainages=[];getDocs(collection(db,"parrainages")).then(q=>{parrainages=q.docs.map(d=>d.data());if(tab==="vue")current?.refresh?.()}).catch(()=>{})}
   const draw=()=>{
   const nR=Object.keys(RA).length,nV=Object.values(RA).filter(r=>r.valide).length,nP=Object.keys(P).length;
   const conf=D.filter(d=>d.statut==="acceptee"),att=D.filter(d=>d.statut==="attente"&&d.date>=TODAY_ISO);
@@ -1150,6 +1195,8 @@ function vVue(){
   <div class="panel"><div class="stat"><div><b>${nV}/${nR}</b><span>remplaçants visibles</span></div><div><b>${nP}</b><span>officines inscrites</span></div><div><b>${att.length}</b><span>demandes en attente</span></div><div><b>${conf.length}</b><span>missions confirmées</span></div><div><b>${A.length?fmtNote(notes):"—"}</b><span>note moyenne (${A.length} avis)</span></div><div><b>${fraisTot} €</b><span>frais missions (${FRAIS} € TVAC/mission)</span></div><div><b>${nMois}+${nAn}</b><span>Premium mensuels + annuels</span></div></div></div>
   <div class="notice ${quota[0]==="ok"?"ok":""} install" style="${quota[0]==="bad"?"background:var(--bad-soft)":""}"><span><b style="${quota[0]==="bad"?"color:var(--bad)":""}">Capacité Firebase : ${quota[1]}.</b> ${quota[2]}<br><span class="hint">Estimation : ${lecturesJour.toLocaleString("fr-BE")} lectures par jour sur environ 50 000 gratuites (${utilisateurs} inscrits, 2 ouvertures par jour chacun). Chiffre réel : Firebase > Firestore > Utilisation.</span></span></div>
   <div class="panel stack"><h2>Frais par remplaçant</h2><p class="muted" style="margin:0;font-size:14px">${FRAIS} € TVAC par mission acceptée, sauf pendant un Premium (4,99 €/mois ou 34,99 €/an). Pendant le pilote, ces montants sont indicatifs.</p>${perR.length?`<div class="tbl"><table><thead><tr><th>Remplaçant</th><th>Missions acceptées</th><th>Montant</th></tr></thead><tbody>${perR.map(([rid,[n,f]])=>`<tr><td>${esc(RA[rid]?.nom||"—")}${premiumA(RA[rid],TODAY_ISO)?` <span class="chip ok">Premium</span>`:""}</td><td class="mono">${n}</td><td class="mono">${f} €</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune mission acceptée pour l'instant.</p>`}</div>
+  <div class="panel stack"><h2>Parrainage</h2>${parrainages.length?(()=>{const m={};for(const x of parrainages){m[x.parrain]=m[x.parrain]||[0,0];m[x.parrain][x.role==="p"?1:0]++}
+    return `<p style="margin:0"><b class="mono">${parrainages.length}</b> inscription${parrainages.length>1?"s":""} grâce au parrainage.</p><div class="tbl"><table><thead><tr><th>Parrain</th><th class="n">Remplaçants</th><th class="n">Officines</th></tr></thead><tbody>${Object.entries(m).sort((a,b)=>b[1][0]+b[1][1]-a[1][0]-a[1][1]).map(([k,v])=>`<tr><td>${esc(RA[k]?.nom||P[k]?.nom||"Compte supprimé")}</td><td class="n">${v[0]}</td><td class="n">${v[1]}</td></tr>`).join("")}</tbody></table></div>`})():`<p class="muted" style="margin:0">Aucune inscription par parrainage pour l'instant.</p>`}</div>
   <div class="panel stack"><h2>Derniers avis</h2>${A.length?`<div class="tbl"><table><thead><tr><th>Date</th><th>Pour</th><th>Note</th><th>Commentaire</th><th></th></tr></thead><tbody>${A.slice().sort((a,b)=>a.cree<b.cree?1:-1).slice(0,30).map(a=>`<tr><td>${a.cree?nice(a.cree.slice(0,10)):"—"}</td><td>${esc(RA[a.pour]?.nom||P[a.pour]?.nom||"—")}</td><td><span class="stars">${"★".repeat(Math.max(0,Math.min(5,a.note|0)))}</span></td><td style="overflow-wrap:anywhere">${esc(a.texte||"")}</td><td><button class="btn small danger" data-delavis="${esc(a.id)}">Retirer</button></td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucun avis pour l'instant.</p>`}</div>
   ${(()=>{const lim=iso(addDays(TODAY,-3*365)),vieux=D.filter(d=>d.date<lim);return vieux.length?`<div class="notice"><b>${vieux.length} demande${vieux.length>1?"s":""} de plus de 3 ans.</b> La politique de confidentialité prévoit de les supprimer. <button class="btn small" id="purge">Supprimer maintenant</button></div>`:""})()}
   <div class="panel stack"><h2>Officines inscrites</h2>${nP?`<div class="tbl"><table><thead><tr><th>Officine</th><th>Localité</th><th>Titulaire</th><th>Inscrite</th></tr></thead><tbody>${Object.values(P).map(p=>`<tr><td>${esc(p.nom)}</td><td>${esc(locLabel(p.commune))}</td><td>${esc(p.titulaire)}</td><td>${p.cree?nice(p.cree.slice(0,10)):"—"}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Aucune officine inscrite pour l'instant.</p>`}</div>

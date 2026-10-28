@@ -196,5 +196,20 @@ service cloud.firestore {
           && get(chemin('candidats/' + request.resource.data.cid)).data.statut == 'visible'));
       allow delete: if signedIn() && (resource.data.pid == me() || resource.data.cid == me() || isAdmin());
     }
+
+    // Parrainage : le filleul note qui l'a invité, une seule fois, après avoir créé son profil.
+    // Le parrain voit seulement le rôle et la date de ses filleuls (ni nom, ni coordonnées).
+    match /parrainages/{fid} {
+      allow read: if signedIn() && (me() == fid || isAdmin() || resource.data.parrain == me());
+      allow create: if signedIn() && me() == fid
+        && request.resource.data.keys().hasOnly(['parrain', 'role', 'cree'])
+        && str(request.resource.data.parrain, 128) && request.resource.data.parrain != fid
+        && str(request.resource.data.cree, 40)
+        && ((request.resource.data.role == 'r' && exists(chemin('remplacants/' + fid)))
+          || (request.resource.data.role == 'p' && exists(chemin('pharmacies/' + fid))))
+        && (exists(chemin('remplacants/' + request.resource.data.parrain))
+          || exists(chemin('pharmacies/' + request.resource.data.parrain)));
+      allow delete: if signedIn() && (me() == fid || isAdmin());
+    }
   }
 }
