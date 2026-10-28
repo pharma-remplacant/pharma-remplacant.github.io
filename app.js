@@ -657,7 +657,7 @@ const FORMULES={
   vie:{nom:"Premium à vie",prix:"Offert",unite:"membre fondateur, sans limite de durée",slogan:"Merci d'avoir lancé l'aventure."}
 };
 const VIE="9999-12-31";
-const finTxt=p=>p.formule==="vie"?"à vie":`jusqu'au ${niceY(p.fin)}`;
+const finTxt=p=>p.formule==="vie"?"":`jusqu'au ${niceY(p.fin)}`;
 // Premium actif à une date donnée (r.premium = {formule, debut, fin}, posé par l'administrateur)
 const premiumA=(r,date)=>!!(r?.premium&&r.premium.debut<=date&&date<=r.premium.fin);
 const fraisMission=(d)=>premiumA(rem(d.rid),d.date)?0:FRAIS;
