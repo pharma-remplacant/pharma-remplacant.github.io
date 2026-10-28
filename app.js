@@ -107,7 +107,7 @@ function vAuth(){
       <label>E-mail<input id="a-email" type="email" required autocomplete="email"></label>
       ${reset?"":`<label>Mot de passe<input id="a-pass" type="password" required minlength="6" autocomplete="${reg?"new-password":"current-password"}">${reg?`<span class="hint">6 caractères minimum.</span>`:""}</label>`}
       <button class="btn primary" type="submit">${reset?"Envoyer le lien":reg?"Créer mon compte":"Me connecter"}</button>
-      <div class="auth-links">${reset?`<button type="button" class="linkbtn" id="m-back">Retour à la connexion</button>`:`<button type="button" class="linkbtn" id="m-reset">Mot de passe oublié ?</button>`}</div>
+      <div class="auth-links">${reset?`<button type="button" class="linkbtn" id="m-back">Retour à la connexion</button>`:`<button type="button" class="linkbtn" id="m-reset">Mot de passe oublié ?</button>`}<a class="linkbtn" href="decouvrir/">Découvrir Pharma Remplaçant</a></div>
     </form>
     ${installBanner()}
   </div>`;

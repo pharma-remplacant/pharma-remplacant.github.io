@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pharma Remplaçant · Remplacements en officine en Wallonie</title>
+<meta name="description" content="Pharma Remplaçant : les pharmaciens et assistants indépendants ouvrent leurs jours libres, les officines de Wallonie trouvent et réservent un remplaçant en 2 minutes. Gratuit pour les officines.">
+<meta property="og:title" content="Pharma Remplaçant">
+<meta property="og:description" content="Pharma Remplaçant : les pharmaciens et assistants indépendants ouvrent leurs jours libres, les officines de Wallonie trouvent et réservent un remplaçant en 2 minutes. Gratuit pour les officines.">
+<meta property="og:image" content="https://pharma-remplacant.github.io/icon-512.png">
+<meta property="og:url" content="https://pharma-remplacant.github.io/decouvrir/">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0b7a5c">
+<link rel="icon" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<link rel="canonical" href="https://pharma-remplacant.github.io/decouvrir/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout : page de présentation — bandeau d'accroche avec un agenda simulé, deux parcours côte à côte, prix, inscription, contact */
+:root{
+  --bg:#f2f6f4; --surface:#ffffff; --ink:#12302b; --muted:#5a6e68; --line:#d6e0dc;
+  --accent:#0b7a5c; --accent-ink:#ffffff; --accent-soft:#dcefe7; --deep:#0d3b31; --deep-ink:#e6f4ee; --warn:#9a5a08; --warn-soft:#fbeed9;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1614; --surface:#16211e; --ink:#e2eeea; --muted:#93a8a1; --line:#283934;
+  --accent:#3fc699; --accent-ink:#06261c; --accent-soft:#163a2f; --deep:#0a2a22; --deep-ink:#dff3ea; --warn:#e8a64a; --warn-soft:#3a2a12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1614; --surface:#16211e; --ink:#e2eeea; --muted:#93a8a1; --line:#283934;
+  --accent:#3fc699; --accent-ink:#06261c; --accent-soft:#163a2f; --deep:#0a2a22; --deep-ink:#dff3ea; --warn:#e8a64a; --warn-soft:#3a2a12; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.55}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);letter-spacing:-.02em;text-wrap:balance;margin:0;line-height:1.08}
+p{margin:0}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.eyebrow{font:500 12px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font:700 16px var(--f-body);padding:13px 20px;border-radius:12px;border:1px solid var(--line);color:var(--ink);background:var(--surface)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:hover{filter:brightness(1.05)}
+
+nav.top{padding-block:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font:700 20px var(--f-display);letter-spacing:-.02em}
+.cross{width:26px;height:26px;position:relative;flex:none}
+.cross::before,.cross::after{content:"";position:absolute;background:var(--accent);border-radius:3px}
+.cross::before{left:8px;top:0;width:10px;height:26px}
+.cross::after{top:8px;left:0;height:10px;width:26px}
+.pill{font:600 13px var(--f-body);padding:5px 12px;border-radius:999px;background:var(--warn-soft);color:var(--warn)}
+
+.hero{display:grid;gap:40px;padding-block:28px 64px;align-items:center}
+@media (min-width:860px){.hero{grid-template-columns:1.1fr .9fr}}
+.hero h1{font-size:clamp(40px,7vw,72px);font-weight:800}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero .lede{font-size:19px;color:var(--muted);max-width:46ch;margin-top:18px}
+.hero .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+
+/* agenda simulé */
+.mock{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px;max-width:440px;width:100%;justify-self:center}
+.mock-h{display:flex;justify-content:space-between;align-items:baseline}
+.mock-h b{font:700 18px var(--f-display)}
+.mock-h span{font:500 12px var(--f-mono);color:var(--muted)}
+.mcal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.mcal i{font:500 10px var(--f-mono);color:var(--muted);text-align:center;font-style:normal}
+.mcal span{aspect-ratio:1/1;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;font:500 12px var(--f-mono);background:var(--bg)}
+.mcal .on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.mcal .sel{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mres{display:flex;flex-direction:column;gap:8px}
+.mres div{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:9px 10px;font-size:14px}
+.mres .av{width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font:700 12px var(--f-display);flex:none}
+.mres small{display:block;color:var(--muted);font-size:12px}
+.mres .km{margin-left:auto;font:500 13px var(--f-mono);color:var(--muted)}
+.mock-note{font-size:12px;color:var(--muted);text-align:center}
+
+section{padding-block:56px}
+.sec-h{display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:60ch}
+.sec-h h2{font-size:clamp(30px,4.5vw,44px)}
+.sec-h p{color:var(--muted)}
+
+.paths{display:grid;gap:18px}
+@media (min-width:820px){.paths{grid-template-columns:1fr 1fr}}
+.path{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:18px}
+.path h3{font-size:24px}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;counter-reset:s}
+.steps li{display:grid;grid-template-columns:34px 1fr;gap:12px;counter-increment:s}
+.steps li::before{content:counter(s);width:34px;height:34px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent);display:grid;place-items:center;font:600 14px var(--f-mono)}
+.steps b{display:block}
+.steps span{color:var(--muted);font-size:15px}
+
+.trust{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.trust div{border-top:2px solid var(--accent);padding-top:14px;display:flex;flex-direction:column;gap:6px}
+.trust b{font:700 19px var(--f-display)}
+.trust span{color:var(--muted);font-size:15px}
+
+.band{background:var(--deep);color:var(--deep-ink)}
+.band .eyebrow{color:var(--deep-ink);opacity:.75}
+.band .sec-h p{color:var(--deep-ink);opacity:.8}
+.prices{display:grid;gap:18px}
+@media (min-width:760px){.prices{grid-template-columns:1fr 1fr}}
+.price{border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.price h3{font-size:20px}
+.amount{font:700 46px var(--f-display);letter-spacing:-.03em}
+.amount small{font:500 15px var(--f-body);opacity:.75;letter-spacing:0}
+.price ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:15px;opacity:.9}
+
+.join{display:grid;gap:18px}
+@media (min-width:820px){.join{grid-template-columns:1.2fr .8fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.card h3{font-size:22px}
+.card p{color:var(--muted);font-size:16px}
+.contact-line{display:flex;flex-direction:column;gap:2px;padding-block:10px;border-bottom:1px solid var(--line)}
+.contact-line:last-of-type{border-bottom:0}
+.contact-line small{font:500 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.contact-line b{font:600 18px var(--f-mono);overflow-wrap:anywhere;user-select:all}
+.todo{color:var(--warn)}
+footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="top" aria-label="En-tête">
+    <span class="brand"><span class="cross" aria-hidden="true"></span>Pharma Remplaçant</span>
+    <span class="pill">Pilote en Wallonie · gratuit</span>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Remplacements en officine</p>
+      <h1 style="margin-top:14px">Un remplaçant pour vendredi&nbsp;? <em>Trouvé en 2 minutes.</em></h1>
+      <p class="lede">Les pharmaciens et assistants indépendants ouvrent eux-mêmes leurs jours libres. Votre officine choisit une date et voit tout de suite qui est disponible près de chez vous.</p>
+      <div class="cta">
+        <a class="btn primary" href="../#inscription">Créer mon compte</a>
+        <a class="btn" href="#fonctionnement">Comment ça marche</a>
+      </div>
+    </div>
+    <div class="mock" aria-label="Aperçu de la recherche d'un remplaçant">
+      <div class="mock-h"><b>Vendredi 6 novembre</b><span>Jambes · 5100</span></div>
+      <div class="mcal" aria-hidden="true">
+        <i>L</i><i>M</i><i>M</i><i>J</i><i>V</i><i>S</i><i>D</i>
+        <span>2</span><span>3</span><span class="on">4</span><span>5</span><span class="sel">6</span><span class="on">7</span><span>8</span>
+        <span>9</span><span class="on">10</span><span>11</span><span>12</span><span class="on">13</span><span>14</span><span>15</span>
+      </div>
+      <div class="mres">
+        <div><span class="av">AP</span><span>Assistante en pharmacie<small>Officinall, Farmad · ★ 4,9</small></span><span class="km">6 km</span></div>
+        <div><span class="av">PH</span><span>Pharmacien remplaçant<small>Greenock · ★ 4,8</small></span><span class="km">14 km</span></div>
+        <div><span class="av">AP</span><span>Assistant en pharmacie<small>Farmad · ★ 5,0</small></span><span class="km">22 km</span></div>
+      </div>
+      <p class="mock-note">Illustration de l'écran de recherche</p>
+    </div>
+  </header>
+</div>
+
+<section id="fonctionnement">
+  <div class="wrap">
+    <div class="sec-h"><p class="eyebrow">Fonctionnement</p><h2>Chacun gère son côté, la plateforme fait le lien</h2><p>Aucun intermédiaire à appeler. Le remplaçant tient son agenda à jour, l'officine réserve, et les deux reçoivent la confirmation.</p></div>
+    <div class="paths">
+      <div class="path">
+        <h3>Pour les officines</h3>
+        <ol class="steps">
+          <li><div><b>Inscrivez votre officine</b><span>Nom, localité, logiciel. Deux minutes.</span></div></li>
+          <li><div><b>Choisissez une date</b><span>Vous voyez les remplaçants vérifiés, libres ce jour-là et prêts à venir jusqu'à vous.</span></div></li>
+          <li><div><b>Envoyez une demande</b><span>Horaires, consignes, logiciel. Le coût estimé s'affiche avant l'envoi.</span></div></li>
+          <li><div><b>Recevez la confirmation</b><span>Les coordonnées s'échangent dès que le remplaçant accepte.</span></div></li>
+        </ol>
+      </div>
+      <div class="path">
+        <h3>Pour les remplaçants indépendants</h3>
+        <ol class="steps">
+          <li><div><b>Créez votre profil</b><span>Statut, diplôme, n° BCE, rayon de déplacement, tarif horaire. Visible dès qu'il est complet.</span></div></li>
+          <li><div><b>Ouvrez vos jours libres</b><span>Un par un, ou d'un coup : « tous les vendredis », « un samedi sur deux ».</span></div></li>
+          <li><div><b>Acceptez ou refusez</b><span>Vous restez maître de votre agenda et de votre tarif.</span></div></li>
+          <li><div><b>Facturez directement l'officine</b><span>Votre tarif reste le vôtre. Seuls 2 € par mission acceptée, après le pilote.</span></div></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-h"><p class="eyebrow">Confiance</p><h2>Des profils contrôlés, des avis réels</h2></div>
+    <div class="trust">
+      <div><b>N° BCE contrôlé</b><span>Le numéro d'entreprise de chaque remplaçant est vérifié automatiquement à l'inscription ; un profil douteux peut être suspendu.</span></div>
+      <div><b>Avis après chaque mission</b><span>L'officine note le remplaçant, le remplaçant note l'officine.</span></div>
+      <div><b>Coordonnées protégées</b><span>Téléphone et e-mail ne sont partagés qu'une fois la mission confirmée.</span></div>
+      <div><b>Toute la Wallonie</b><span>Distance calculée depuis votre localité, du Brabant wallon au Luxembourg.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="sec-h"><p class="eyebrow">Tarifs</p><h2>Gratuit pendant le pilote</h2><p>Aucun abonnement. Après le pilote, seules les missions acceptées sont payantes. Vous serez prévenu avant la fin du pilote.</p></div>
+    <div class="prices">
+      <div class="price">
+        <h3>Officines</h3>
+        <div class="amount">0 € <small>toujours</small></div>
+        <p>Aucun abonnement, aucun frais de réservation.</p>
+        <ul><li>Recherches et demandes illimitées</li><li>Accès à tous les remplaçants vérifiés de votre zone</li><li>Historique et avis</li></ul>
+      </div>
+      <div class="price">
+        <h3>Remplaçants</h3>
+        <div class="amount">2 € <small>par mission acceptée</small></div>
+        <p>Inscription gratuite. Gratuit pendant le pilote, puis 2 € TVAC seulement quand vous acceptez une mission.</p>
+        <ul><li>Profil et agenda en libre-service</li><li>Rien à payer pour un refus ou un mois sans mission</li><li>Vous fixez votre tarif</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="rejoindre">
+  <div class="wrap join">
+    <div class="card">
+      <p class="eyebrow">Inscription</p>
+      <h3>Créez votre compte en une minute</h3>
+      <p>Inscrivez-vous avec votre e-mail : l'accès est immédiat. Sur téléphone, ajoutez ensuite l'appli à votre écran d'accueil.</p>
+      <div class="row" style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn primary" href="../#inscription-remplacant">Je suis remplaçant·e</a><a class="btn" href="../#inscription-pharmacie">Je suis une officine</a></div>
+    </div>
+    <div class="card" aria-label="Contact">
+      <p class="eyebrow">Contact</p>
+      <h3>Une question ?</h3>
+      <div class="contact-line"><small>Téléphone</small><b>0493 44 50 48</b></div>
+      <p>Appelez ou envoyez un SMS.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">Pharma Remplaçant · plateforme pilote de remplacements en officine en Wallonie. Les données d'inscription servent uniquement au pilote et peuvent être supprimées sur simple demande.</div>
+</footer>
+</body>
+</html>
