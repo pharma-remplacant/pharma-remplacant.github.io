@@ -2,14 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-fHFY1aAXn0C4bVGHvtWr3X1MXlW67WAsVHeLS8wiqk4='; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Pharma Remplaçant · Remplacements en officine en Wallonie</title>
 <meta name="description" content="Pharma Remplaçant : les pharmaciens et assistants indépendants ouvrent leurs jours libres, les officines de Wallonie trouvent et réservent un remplaçant en 2 minutes. Gratuit pour les officines.">
-<meta property="og:title" content="Pharma Remplaçant">
+<meta property="og:title" content="Pharma Remplaçant · Un remplaçant pour vendredi ? Trouvé en 2 minutes.">
 <meta property="og:description" content="Pharma Remplaçant : les pharmaciens et assistants indépendants ouvrent leurs jours libres, les officines de Wallonie trouvent et réservent un remplaçant en 2 minutes. Gratuit pour les officines.">
-<meta property="og:image" content="https://pharma-remplacant.github.io/icon-512.png">
+<meta property="og:image" content="https://pharma-remplacant.github.io/decouvrir/partage.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_BE">
+<meta name="twitter:card" content="summary_large_image">
 <meta property="og:url" content="https://pharma-remplacant.github.io/decouvrir/">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#bf4420">
@@ -119,6 +123,48 @@ section{padding-block:56px}
 .contact-line b{font:600 18px var(--f-mono);overflow-wrap:anywhere;user-select:all}
 .todo{color:var(--warn)}
 footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+/* sections ajoutées : avant/après, avantages, installation, FAQ, partage */
+.hero .reassure{display:flex;gap:8px 16px;flex-wrap:wrap;margin-top:18px;font-size:14px;color:var(--muted)}
+.hero .reassure span::before{content:"✓ ";color:var(--accent);font-weight:700}
+.vs{display:grid;gap:18px}
+@media (min-width:820px){.vs{grid-template-columns:1fr 1fr}}
+.vs>div{border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.vs .avant{background:var(--surface);border:1px dashed var(--line)}
+.vs .apres{background:var(--accent-soft);border:1px solid var(--accent)}
+.vs h3{font-size:22px}
+.vs ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.vs li{display:grid;grid-template-columns:22px 1fr;gap:8px}
+.vs .avant li::before{content:"✕";color:var(--muted);font-weight:700}
+.vs .apres li::before{content:"✓";color:var(--accent);font-weight:800}
+.vs .avant li{color:var(--muted)}
+.benef{display:grid;gap:18px}
+@media (min-width:820px){.benef{grid-template-columns:1fr 1fr}}
+.benef .path ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px}
+.benef li{display:grid;grid-template-columns:30px 1fr;gap:10px}
+.benef li::before{content:"✓";width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:14px}
+.benef li b{display:block}
+.benef li span{color:var(--muted);font-size:15px}
+.benef .btn{align-self:flex-start;margin-top:auto}
+.inst{display:grid;gap:18px}
+@media (min-width:860px){.inst{grid-template-columns:1fr 1fr}}
+.inst .why{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.inst .why div{display:flex;flex-direction:column;gap:4px}
+.inst .why b{font:700 17px var(--f-display)}
+.inst .why span{color:var(--muted);font-size:15px}
+.how{display:flex;flex-direction:column;gap:12px}
+.how details{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.how summary{font-weight:700;cursor:pointer}
+.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:15px}
+.faq{display:flex;flex-direction:column;gap:10px;max-width:760px}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.faq summary{font:700 17px var(--f-display);cursor:pointer;list-style-position:outside}
+.faq p{margin-top:10px;color:var(--muted);font-size:16px}
+.share{display:flex;gap:10px;flex-wrap:wrap}
+.final{text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px}
+.final h2{font-size:clamp(32px,5vw,52px)}
+.final p{opacity:.85;max-width:52ch}
+.final .btn{background:var(--surface);color:var(--ink);border-color:transparent}
+.final .btn.primary{background:var(--accent);color:var(--accent-ink)}
 .invite{display:inline-block;margin:0 0 14px;font-weight:700;font-size:15px;padding:7px 14px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
@@ -134,6 +180,7 @@ footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px 
 <link rel="stylesheet" href="../saison.css">
 <script src="../saison.js"></script>
 <script src="parrain.js"></script>
+<script src="install.js" defer></script>
 </head>
 <body>
 <div id="installbar" hidden><div class="wrap installbar"><img src="../icon-192.png" alt="" width="36" height="36"><span class="txt"><b>Téléchargez l'appli Pharma Remplaçant</b><small id="inst-txt"></small></span><span><a class="btn primary" id="inst-go" href="../#inscription">Installer</a> <button class="x" id="inst-x">Plus tard</button></span></div></div>
@@ -145,13 +192,14 @@ footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px 
 
   <header class="hero">
     <div>
-      <p class="eyebrow">Remplacements en officine</p>
+      <p class="eyebrow">Remplacements en officine · Wallonie</p>
       <h1 style="margin-top:14px">Un remplaçant pour vendredi&nbsp;? <em>Trouvé en 2 minutes.</em></h1>
-      <p class="lede">Les pharmaciens et assistants indépendants ouvrent eux-mêmes leurs jours libres. Votre officine choisit une date et voit tout de suite qui est disponible près de chez vous.</p>
+      <p class="lede">Les pharmaciens et assistants indépendants ouvrent eux-mêmes leurs jours libres. Votre officine choisit une date et voit tout de suite qui est disponible près de chez vous. Fini les coups de fil à la chaîne.</p>
       <div class="cta">
-        <a class="btn primary" href="../#inscription">Créer mon compte</a>
-        <a class="btn" href="#fonctionnement">Comment ça marche</a>
+        <a class="btn primary" href="../#inscription-pharmacie">Je cherche un remplaçant</a>
+        <a class="btn" href="../#inscription-remplacant">Je suis remplaçant·e</a>
       </div>
+      <p class="reassure"><span>Gratuit pendant le pilote</span><span>Inscription en 1 minute</span><span>Sans Play Store ni App Store</span></p>
     </div>
     <div class="mock" aria-label="Aperçu de la recherche d'un remplaçant">
       <div class="mock-h"><b>Vendredi 6 novembre</b><span>Jambes · 5100</span></div>
@@ -170,26 +218,76 @@ footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px 
   </header>
 </div>
 
-<section id="fonctionnement">
+<section style="padding-top:8px">
+  <div class="wrap">
+    <div class="sec-h"><p class="eyebrow">Le constat</p><h2>Trouver un remplaçant ne devrait pas prendre une matinée</h2><p>Créée par un assistant pharmaceutico-technique wallon qui connaît le problème des deux côtés du comptoir.</p></div>
+    <div class="vs">
+      <div class="avant"><h3>Aujourd'hui</h3><ul>
+        <li>Dix appels pour trouver quelqu'un de libre</li>
+        <li>Des messages perdus dans les groupes Facebook et WhatsApp</li>
+        <li>Aucune idée de qui maîtrise votre logiciel</li>
+        <li>Des remplaçants qui ratent des missions faute d'être connus</li>
+      </ul></div>
+      <div class="apres"><h3>Avec Pharma Remplaçant</h3><ul>
+        <li>Les disponibles du jour, triés par distance, en un coup d'œil</li>
+        <li>Une demande, une réponse, une confirmation par e-mail</li>
+        <li>Logiciels, expérience et avis visibles sur chaque profil</li>
+        <li>Les remplaçants visibles par toutes les officines de leur zone</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-h"><p class="eyebrow">Avantages</p><h2>Pensée pour le quotidien de l'officine</h2></div>
+    <div class="benef">
+      <div class="path">
+        <h3>Pour les officines</h3>
+        <ul>
+          <li><div><b>0 €, toujours</b><span>Aucun abonnement, aucun frais de réservation, recherches illimitées.</span></div></li>
+          <li><div><b>Les disponibilités en temps réel</b><span>Seulement les personnes libres le jour choisi et prêtes à venir jusqu'à vous.</span></div></li>
+          <li><div><b>Des profils contrôlés et notés</b><span>N° d'entreprise vérifié, diplôme renseigné, avis laissés après de vraies missions.</span></div></li>
+          <li><div><b>Le bon logiciel</b><span>Officinall, Farmad, Greenock, Sabco, Pharmony, Next Pharm : filtrez d'un geste.</span></div></li>
+          <li><div><b>Vos offres d'emploi gratuites</b><span>CDI, CDD, flexi-jobs, jobs étudiants : publiez et recevez des candidatures.</span></div></li>
+        </ul>
+        <a class="btn primary" href="../#inscription-pharmacie">Inscrire mon officine</a>
+      </div>
+      <div class="path">
+        <h3>Pour les remplaçants</h3>
+        <ul>
+          <li><div><b>Votre tarif, vos jours</b><span>Vous fixez votre tarif horaire et ouvrez vos jours libres, même « tous les vendredis » en un geste.</span></div></li>
+          <li><div><b>Visible dans toute votre zone</b><span>Toutes les officines inscrites dans votre rayon vous trouvent, sans démarchage.</span></div></li>
+          <li><div><b>Prévenu tout de suite</b><span>Notification et e-mail à chaque demande. Vous acceptez ou refusez librement.</span></div></li>
+          <li><div><b>Facture prête en un geste</b><span>Facture au format Peppol générée après chaque mission.</span></div></li>
+          <li><div><b>Gratuit pendant le pilote</b><span>Ensuite, 2 € par mission acceptée seulement. Rien à payer les mois calmes.</span></div></li>
+        </ul>
+        <a class="btn primary" href="../#inscription-remplacant">Créer mon profil</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="fonctionnement" style="padding-top:0">
   <div class="wrap">
     <div class="sec-h"><p class="eyebrow">Fonctionnement</p><h2>Chacun gère son côté, la plateforme fait le lien</h2><p>Aucun intermédiaire à appeler. Le remplaçant tient son agenda à jour, l'officine réserve, et les deux reçoivent la confirmation.</p></div>
     <div class="paths">
       <div class="path">
-        <h3>Pour les officines</h3>
+        <h3>Côté officine</h3>
         <ol class="steps">
-          <li><div><b>Inscrivez votre officine</b><span>Nom, localité, logiciel. Deux minutes.</span></div></li>
+          <li><div><b>Inscrivez votre officine</b><span>Nom, localité, coordonnées. Deux minutes.</span></div></li>
           <li><div><b>Choisissez une date</b><span>Vous voyez les remplaçants vérifiés, libres ce jour-là et prêts à venir jusqu'à vous.</span></div></li>
           <li><div><b>Envoyez une demande</b><span>Horaires, consignes, logiciel. Le coût estimé s'affiche avant l'envoi.</span></div></li>
-          <li><div><b>Recevez la confirmation</b><span>Les coordonnées s'échangent dès que le remplaçant accepte.</span></div></li>
+          <li><div><b>Recevez la confirmation</b><span>Par e-mail et dans l'appli. Les coordonnées s'échangent dès que le remplaçant accepte.</span></div></li>
         </ol>
       </div>
       <div class="path">
-        <h3>Pour les remplaçants indépendants</h3>
+        <h3>Côté remplaçant</h3>
         <ol class="steps">
           <li><div><b>Créez votre profil</b><span>Statut, diplôme, n° BCE, rayon de déplacement, tarif horaire. Visible dès qu'il est complet.</span></div></li>
           <li><div><b>Ouvrez vos jours libres</b><span>Un par un, ou d'un coup : « tous les vendredis », « un samedi sur deux ».</span></div></li>
           <li><div><b>Acceptez ou refusez</b><span>Vous restez maître de votre agenda et de votre tarif.</span></div></li>
-          <li><div><b>Facturez l'officine en un geste</b><span>Facture prête au format Peppol après chaque mission. Votre tarif reste le vôtre.</span></div></li>
+          <li><div><b>Facturez l'officine en un geste</b><span>Facture prête au format Peppol après chaque mission.</span></div></li>
         </ol>
       </div>
     </div>
@@ -203,20 +301,20 @@ footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px 
       <div><b>N° BCE contrôlé</b><span>Le numéro d'entreprise de chaque remplaçant est vérifié automatiquement à l'inscription ; un profil douteux peut être suspendu.</span></div>
       <div><b>Avis vérifiés</b><span>Seulement après une mission confirmée : l'officine note le remplaçant, le remplaçant note l'officine.</span></div>
       <div><b>Coordonnées protégées</b><span>Téléphone et e-mail ne sont partagés qu'une fois la mission confirmée.</span></div>
-      <div><b>Toute la Wallonie</b><span>Distance calculée depuis votre localité, du Brabant wallon au Luxembourg.</span></div>
+      <div><b>Données en Europe</b><span>Hébergées en Belgique, jamais vendues ni utilisées pour de la publicité.</span></div>
     </div>
   </div>
 </section>
 
 <section class="band">
   <div class="wrap">
-    <div class="sec-h"><p class="eyebrow">Tarifs</p><h2>Gratuit pendant le pilote</h2><p>Aucun abonnement. Après le pilote, seules les missions acceptées sont payantes. Vous serez prévenu avant la fin du pilote.</p></div>
+    <div class="sec-h"><p class="eyebrow">Tarifs</p><h2>Gratuit pendant le pilote</h2><p>Aucun abonnement obligatoire. Après le pilote, seules les missions acceptées sont payantes, et uniquement pour les remplaçants. Vous serez prévenu avant la fin du pilote.</p></div>
     <div class="prices">
       <div class="price">
         <h3>Officines</h3>
         <div class="amount">0 € <small>toujours</small></div>
         <p>Aucun abonnement, aucun frais de réservation.</p>
-        <ul><li>Recherches et demandes illimitées</li><li>Accès à tous les remplaçants vérifiés de votre zone</li><li>Historique et avis</li></ul>
+        <ul><li>Recherches et demandes illimitées</li><li>Accès à tous les remplaçants vérifiés de votre zone</li><li>Offres d'emploi gratuites</li><li>Historique et avis</li></ul>
       </div>
       <div class="price">
         <h3>Remplaçants</h3>
@@ -230,15 +328,61 @@ footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px 
   </div>
 </section>
 
-<section id="rejoindre">
-  <div class="wrap join">
-    <div class="card">
-      <p class="eyebrow">Inscription</p>
-      <h3>Créez votre compte en une minute</h3>
-      <p>Inscrivez-vous avec votre e-mail : l'accès est immédiat. Sur téléphone, ajoutez ensuite l'appli à votre écran d'accueil.</p>
-      <div class="row" style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn primary" href="../#inscription-remplacant">Je suis remplaçant·e</a><a class="btn" href="../#inscription-pharmacie">Je suis une officine</a></div>
+<section id="installer">
+  <div class="wrap inst">
+    <div>
+      <div class="sec-h"><p class="eyebrow">L'appli</p><h2>Installez-la en 10 secondes, sans store</h2><p>Pharma Remplaçant s'installe directement depuis votre navigateur. Pas de Play Store, pas d'App Store, pas de compte supplémentaire.</p></div>
+      <div class="why">
+        <div><b>Une icône sur l'écran</b><span>Ouverte en un geste, en plein écran, comme une appli classique.</span></div>
+        <div><b>Notifications</b><span>Prévenu des nouvelles demandes et confirmations.</span></div>
+        <div><b>Légère</b><span>Moins d'1 Mo, presque rien sur votre téléphone.</span></div>
+        <div><b>Toujours à jour</b><span>Les nouveautés arrivent toutes seules, rien à mettre à jour.</span></div>
+      </div>
+      <p style="margin-top:20px"><a class="btn primary" id="inst-go2" href="../#inscription">Installer l'appli</a></p>
     </div>
-    <div class="card" aria-label="Contact">
+    <div class="how">
+      <details open><summary>Android (Chrome, Samsung Internet)</summary><ol><li>Ouvrez <b>pharma-remplacant.github.io</b></li><li>Touchez le bouton <b>Installer</b> en haut de la page, ou le menu <b>⋮</b></li><li>Choisissez <b>Installer l'application</b> ou <b>Ajouter à l'écran d'accueil</b></li></ol></details>
+      <details><summary>iPhone et iPad (Safari)</summary><ol><li>Ouvrez <b>pharma-remplacant.github.io</b> dans Safari</li><li>Touchez le bouton <b>Partager</b> (carré avec une flèche)</li><li>Choisissez <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b></li></ol></details>
+      <details><summary>Ordinateur (Chrome, Edge)</summary><ol><li>Ouvrez <b>pharma-remplacant.github.io</b></li><li>Cliquez sur l'icône <b>Installer</b> à droite de la barre d'adresse</li><li>L'appli s'ouvre dans sa propre fenêtre, épinglable à la barre des tâches</li></ol></details>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-h"><p class="eyebrow">Questions fréquentes</p><h2>Vous vous demandez peut-être…</h2></div>
+    <div class="faq">
+      <details><summary>C'est vraiment gratuit ?</summary><p>Oui. Pour les officines, c'est gratuit pour toujours. Pour les remplaçants, c'est gratuit pendant tout le pilote ; ensuite, seules les missions acceptées coûtent 2 € TVAC, ou un Premium à 4,99 €/mois pour les missions illimitées. Vous serez prévenu avant tout changement.</p></details>
+      <details><summary>Qui peut s'inscrire comme remplaçant ?</summary><p>Les pharmaciens et les assistants pharmaceutico-techniques qui travaillent comme indépendants, avec un numéro d'entreprise (BCE). Vous cherchez plutôt un emploi salarié ou un flexi-job ? Consultez la section <a href="../emploi/">Offres d'emploi</a>.</p></details>
+      <details><summary>Faut-il télécharger quelque chose sur le Play Store ?</summary><p>Non. L'appli s'installe directement depuis le navigateur en quelques secondes, et vous pouvez aussi l'utiliser sans l'installer.</p></details>
+      <details><summary>Mes coordonnées sont-elles visibles par tout le monde ?</summary><p>Non. Votre téléphone et votre e-mail ne sont partagés qu'avec l'officine ou le remplaçant avec qui une mission est confirmée. Les données sont hébergées en Belgique et ne sont jamais vendues.</p></details>
+      <details><summary>Et s'il n'y a encore personne dans ma région ?</summary><p>Le pilote démarre : chaque inscription compte. Inscrivez-vous maintenant pour être visible dès les premières demandes, et invitez vos collègues avec l'onglet « Partager » de l'appli.</p></details>
+      <details><summary>Qui est derrière Pharma Remplaçant ?</summary><p>Un assistant pharmaceutico-technique wallon, qui a vécu le casse-tête des remplacements au quotidien. Une question ou une idée ? Appelez ou envoyez un SMS au <b>0493 44 50 48</b>.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap final">
+    <p class="eyebrow">Rejoignez le pilote</p>
+    <h2>Votre prochain remplacement est à deux minutes</h2>
+    <p>Inscrivez-vous gratuitement aujourd'hui, et parlez-en à une collègue ou à une officine : plus on est nombreux, plus ça marche.</p>
+    <div class="cta" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <a class="btn primary" href="../#inscription-pharmacie">Je cherche un remplaçant</a>
+      <a class="btn" href="../#inscription-remplacant">Je suis remplaçant·e</a>
+    </div>
+    <div class="share" id="share">
+      <button class="btn" id="sh-go" hidden type="button">Partager cette page</button>
+      <a class="btn" id="sh-wa" href="#" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="btn" id="sh-fb" href="#" target="_blank" rel="noopener">Facebook</a>
+      <button class="btn" id="sh-cp" type="button">Copier le lien</button>
+    </div>
+  </div>
+</section>
+
+<section id="rejoindre" style="padding-block:40px">
+  <div class="wrap">
+    <div class="card" aria-label="Contact" style="max-width:520px">
       <p class="eyebrow">Contact</p>
       <h3>Une question ?</h3>
       <div class="contact-line"><small>Téléphone</small><b>0493 44 50 48</b></div>
@@ -248,29 +392,7 @@ footer{padding-block:28px 48px;color:var(--muted);font-size:14px;border-top:1px 
 </section>
 
 <footer>
-  <div class="wrap">Pharma Remplaçant · plateforme pilote de remplacements en officine en Wallonie. Les données d'inscription servent uniquement au pilote et peuvent être supprimées sur simple demande.<br><a href="../legal/#mentions">Mentions légales</a> · <a href="../legal/#conditions">Conditions d'utilisation</a> · <a href="../legal/#confidentialite">Confidentialité</a></div>
+  <div class="wrap">Pharma Remplaçant · plateforme pilote de remplacements en officine en Wallonie.<br><a href="../legal/#mentions">Mentions légales</a> · <a href="../legal/#conditions">Conditions d'utilisation</a> · <a href="../legal/#confidentialite">Confidentialité</a></div>
 </footer>
-<script>
-(function(){
-  var bar=document.getElementById("installbar"),go=document.getElementById("inst-go"),txt=document.getElementById("inst-txt"),evt=null;
-  var ua=navigator.userAgent,ios=/iphone|ipad|ipod/i.test(ua),mobile=/android|iphone|ipad|ipod|mobile/i.test(ua);
-  var standalone=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
-  var hide=0;try{hide=+(localStorage.getItem("pr-install-hide")||0)}catch(e){}
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js").catch(function(){});
-  function show(){
-    if(standalone||Date.now()-hide<7*864e5)return;
-    txt.textContent=evt?"Accès en un geste, en plein écran, comme une vraie appli."
-      :ios?"Dans Safari : bouton Partager, puis « Sur l'écran d'accueil »."
-      :mobile?"Menu ⋮ du navigateur, puis « Ajouter à l'écran d'accueil »."
-      :"Cliquez sur « Installer » dans la barre d'adresse du navigateur.";
-    go.textContent=evt?"Installer":"Ouvrir l'appli";
-    bar.hidden=false;
-  }
-  window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();evt=e;show()});
-  go.addEventListener("click",function(e){if(!evt)return;e.preventDefault();evt.prompt();evt.userChoice.then(function(){evt=null;bar.hidden=true})});
-  document.getElementById("inst-x").addEventListener("click",function(){try{localStorage.setItem("pr-install-hide",String(Date.now()))}catch(e){}bar.hidden=true});
-  show();
-})();
-</script>
 </body>
 </html>

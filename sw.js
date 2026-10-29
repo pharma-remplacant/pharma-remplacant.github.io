@@ -1,6 +1,6 @@
 // Service worker : rend l'appli installable et garde l'interface en cache.
 // Les données restent toujours lues en direct depuis Firebase.
-const CACHE = "pharma-remplacant-v14";
+const CACHE = "pharma-remplacant-v15";
 const FILES = ["./", "index.html", "style.css", "saison.css", "saison.js", "app.js", "localites.js", "firebase-config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
