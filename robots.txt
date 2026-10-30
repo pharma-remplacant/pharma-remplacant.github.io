@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://pharma-remplacant.github.io/sitemap.xml
